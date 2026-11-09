@@ -4,12 +4,122 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>我的網頁版天堂 - 全螢幕橫向與虛擬搖桿版</title>
+    <style>
+        #lineage-preloader {
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle at center, #161b29 0%, #090b10 75%, #040508 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 99999;
+            font-family: "Microsoft JhengHei", "PingFang TC", sans-serif;
+            color: #e8d8a8;
+            user-select: none;
+            transition: opacity 0.45s ease;
+        }
+        .preloader-frame {
+            width: min(500px, 86vw);
+            padding: 28px 30px;
+            background: rgba(12, 15, 24, 0.94);
+            border: 2px solid #d8b458;
+            box-shadow: 0 0 32px rgba(0, 0, 0, 0.9), inset 0 0 18px rgba(216, 180, 88, 0.16);
+            border-radius: 10px;
+            text-align: center;
+        }
+        .preloader-title {
+            font-size: 26px;
+            font-weight: bold;
+            color: #ffe088;
+            text-shadow: 0 2px 8px #000, 0 0 12px rgba(255, 200, 80, 0.45);
+            letter-spacing: 3px;
+            margin-bottom: 6px;
+        }
+        .preloader-subtitle {
+            font-size: 13px;
+            color: #99b4d4;
+            margin-bottom: 22px;
+            letter-spacing: 1px;
+        }
+        .preloader-bar-outer {
+            width: 100%;
+            height: 22px;
+            background: #080a0f;
+            border: 2px solid #8a7038;
+            border-radius: 11px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: inset 0 2px 6px rgba(0,0,0,0.85);
+        }
+        #preloader-bar-fill {
+            width: 2%;
+            height: 100%;
+            background: linear-gradient(90deg, #1b5aa0 0%, #36a2eb 50%, #ffee77 100%);
+            box-shadow: 0 0 14px rgba(80, 200, 255, 0.8);
+            transition: width 0.15s ease-out;
+        }
+        #preloader-percent {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            color: #ffffff;
+            text-shadow: 0 1px 3px #000, 0 0 5px #000;
+        }
+        #preloader-status {
+            margin-top: 14px;
+            font-size: 13px;
+            color: #d8cbb0;
+            min-height: 20px;
+        }
+        .preloader-tip {
+            margin-top: 10px;
+            font-size: 11px;
+            color: #778899;
+        }
+    </style>
+</head>
+<body style="background-color: #222; margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; touch-action: none; overflow: hidden;">
+
+    <!-- 視覺化載入進度條 (Preloader) -->
+    <div id="lineage-preloader">
+        <div class="preloader-frame">
+            <div class="preloader-title">⚔️ 我的網頁版天堂 ⚔️</div>
+            <div class="preloader-subtitle">LINEAGE ‧ 亞丁大陸遠征傳奇</div>
+            <div class="preloader-bar-outer">
+                <div id="preloader-bar-fill"></div>
+                <div id="preloader-percent">2%</div>
+            </div>
+            <div id="preloader-status">正在初始化引擎與讀取世界圖資包...</div>
+            <div class="preloader-tip">提示：可在說話之島村莊找【大魔法師】學習魔法，並拖曳至下方 8 格魔法熱鍵</div>
+        </div>
+    </div>
+
+    <script>
+        function updatePreloaderUI(percent, statusText) {
+            const p = Math.max(0, Math.min(100, Math.round(percent)));
+            const fillEl = document.getElementById('preloader-bar-fill');
+            const pctEl = document.getElementById('preloader-percent');
+            const stEl = document.getElementById('preloader-status');
+            if (fillEl) fillEl.style.width = p + '%';
+            if (pctEl) pctEl.textContent = p + '%';
+            if (statusText && stEl) stEl.textContent = statusText;
+        }
+        function hidePreloaderUI() {
+            const el = document.getElementById('lineage-preloader');
+            if (!el) return;
+            el.style.opacity = '0';
+            setTimeout(() => { if (el && el.parentNode) el.style.display = 'none'; }, 460);
+        }
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
     <script src="monsters.js"></script>
     <script src="items.js"></script>
     <script src="map_assets.js"></script>
-</head>
-<body style="background-color: #222; margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; touch-action: none;">
 
     <script>
         const config = { 
@@ -19,19 +129,27 @@
             scene: { preload: preload, create: create, update: update } 
         };
 
-        // 天堂1 十階魔法系統設定 (1~8級完整開放，9~10級預留設定)
+        // 天堂1 十階魔法系統設定 (1~8級完整開放，9~10級預留設定，含魔法師傳授價格)
         const MagicTierConfig = {
-            1:  { tier: 1,  name: '一級魔法', reqLevel: 1,  reserved: false },
-            2:  { tier: 2,  name: '二級魔法', reqLevel: 4,  reserved: false },
-            3:  { tier: 3,  name: '三級魔法', reqLevel: 8,  reserved: false },
-            4:  { tier: 4,  name: '四級魔法', reqLevel: 12, reserved: false },
-            5:  { tier: 5,  name: '五級魔法', reqLevel: 16, reserved: false },
-            6:  { tier: 6,  name: '六級魔法', reqLevel: 20, reserved: false },
-            7:  { tier: 7,  name: '七級魔法', reqLevel: 24, reserved: false },
-            8:  { tier: 8,  name: '八級魔法', reqLevel: 28, reserved: false },
-            9:  { tier: 9,  name: '九級魔法', reqLevel: 35, reserved: true, desc: '第九級神話魔法階位（預留等級設定，暫未開放魔法）' },
-            10: { tier: 10, name: '十級魔法', reqLevel: 40, reserved: true, desc: '第十級禁忌魔法階位（預留等級設定，暫未開放魔法）' }
+            1:  { tier: 1,  name: '一級魔法', reqLevel: 1,  learnPrice: 300,   reserved: false },
+            2:  { tier: 2,  name: '二級魔法', reqLevel: 4,  learnPrice: 800,   reserved: false },
+            3:  { tier: 3,  name: '三級魔法', reqLevel: 8,  learnPrice: 1800,  reserved: false },
+            4:  { tier: 4,  name: '四級魔法', reqLevel: 12, learnPrice: 3500,  reserved: false },
+            5:  { tier: 5,  name: '五級魔法', reqLevel: 16, learnPrice: 6500,  reserved: false },
+            6:  { tier: 6,  name: '六級魔法', reqLevel: 20, learnPrice: 12000, reserved: false },
+            7:  { tier: 7,  name: '七級魔法', reqLevel: 24, learnPrice: 22000, reserved: false },
+            8:  { tier: 8,  name: '八級魔法', reqLevel: 28, learnPrice: 40000, reserved: false },
+            9:  { tier: 9,  name: '九級魔法', reqLevel: 35, learnPrice: 80000, reserved: true, desc: '第九級神話魔法階位（預留等級設定，暫未開放魔法）' },
+            10: { tier: 10, name: '十級魔法', reqLevel: 40, learnPrice: 150000, reserved: true, desc: '第十級禁忌魔法階位（預留等級設定，暫未開放魔法）' }
         };
+
+        function getSpellLearnPrice(spellId) {
+            const sp = MagicDict[spellId];
+            if (!sp) return 1000;
+            if (sp.learnPrice) return sp.learnPrice;
+            const tCfg = MagicTierConfig[sp.tier];
+            return (tCfg && tCfg.learnPrice) ? tCfg.learnPrice : (sp.tier * 1000);
+        }
 
         const MagicDict = {
             // ================= 一級魔法 (Tier 1) =================
@@ -327,13 +445,36 @@
         let magicDynamicUI = [];
         let currentSpellIndex = 0;
 
+        // 8格魔法熱鍵系統狀態 (畫面正下方中間)
+        const MAGIC_HOTKEY_COUNT = 8;
+        let currentHotkeyIndex = 0;
+        let hotkeyDynamicUI = [];
+        let magicDragGhost = null;
+        let draggingSpellId = null;
+        let draggingFromHotkeyIndex = -1;
+
+        // 出生點魔法師 NPC 傳授魔法視窗狀態
+        let isWizardShopOpen = false;
+        let wizardShopUIElements = [];
+        let wizardShopDynamicUI = [];
+        let currentWizardTierTab = 1;
+        let wizardNpcEntity = null;
+        let shopBuildingEntity = null;
+        let pendingNpcAction = null; // 'shop' | 'wizard'
+
         let lastClickedSlotIndex = -1;
         let lastClickTime = 0;
         let pendingEnchantScrollIndex = -1;
         let pendingEnchantType = null;
 
-        const WORLD_WIDTH = 6000;
-        const WORLD_HEIGHT = 6000;
+        // 地圖擴大為 9 倍 (3x3: 18000 x 18000)，中央說話之島出生點位於 (9000, 9000)
+        const WORLD_WIDTH = 18000;
+        const WORLD_HEIGHT = 18000;
+        const TOWN_CENTER_X = 9000;
+        const TOWN_CENTER_Y = 9000;
+
+        // 怪物數量提升為 2.5 倍 (原本 60 -> 150)
+        const MAX_MONSTERS = 150;
 
         let killCount = 0;
         let bossTriggered = { demon: false, death_knight: false, bones_dragon: false };
@@ -344,7 +485,7 @@
         let potionColors = [0xcc0000, 0xff8800, 0xffffff];
         let potionTextColors = ['#FFFFFF', '#000000', '#000000'];
 
-        let magicBtnVisual, magicTextVisual; 
+        let magicBtnVisual, magicTextVisual, magicActiveSpellLabel; 
         let monsterSpawnTimer = null;
         let mobileUIElements = [];
         let deathUIElements = [];
@@ -1037,7 +1178,7 @@
             return true;
         }
 
-        // 將 1~8 級共 34 種魔法各自專屬的特效原畫合成為 12 幀獨一無二的華麗施法動畫序列圖
+        // 將 1~8 級共 34 種魔法各自專屬的特效原畫合成為 12 幀 (4x3 網格，相容手機/平板 WebGL 2048 貼圖限制) 華麗施法動畫序列圖
         function buildLineageSpellSheet(scene, texKey, rawAssetName, fallbackFile, spellStyle) {
             const srcImg = getAssetImage(rawAssetName, texKey, scene) || getAssetImage(fallbackFile, texKey, scene);
             if (!srcImg || !srcImg.width) return false;
@@ -1048,9 +1189,11 @@
             const frameW = 260;
             const frameH = 280;
             const totalFrames = 12;
+            const cols = 4;
+            const rows = 3;
             const sheet = document.createElement('canvas');
-            sheet.width = frameW * totalFrames;
-            sheet.height = frameH;
+            sheet.width = frameW * cols;
+            sheet.height = frameH * rows;
             const sCtx = sheet.getContext('2d');
 
             // 每個魔法皆擁有獨立的光環色系與專屬動態Overlay特效
@@ -1058,8 +1201,10 @@
             const ringHex = (spellMeta && spellMeta.borderColor) ? spellMeta.borderColor : '#66ccff';
 
             for (let f = 0; f < totalFrames; f++) {
-                const ox = f * frameW;
-                const cx = ox + frameW * 0.5;
+                const cellX = (f % cols) * frameW;
+                const cellY = Math.floor(f / cols) * frameH;
+                const ox = 0;
+                const cx = frameW * 0.5;
                 const cy = frameH * 0.54;
                 const phase = (f / totalFrames) * Math.PI * 2;
 
@@ -1083,8 +1228,9 @@
                 else { alpha = 0.26; scaleX = 1.18; scaleY = 1.14; offsetY = -12; }
 
                 sCtx.save();
+                sCtx.translate(cellX, cellY);
                 sCtx.beginPath();
-                sCtx.rect(ox, 0, frameW, frameH);
+                sCtx.rect(0, 0, frameW, frameH);
                 sCtx.clip();
                 sCtx.globalAlpha = alpha;
 
@@ -1536,7 +1682,104 @@
             }
         }
 
-        function registerPreloadedAssets(scene) {
+        // 製作出生點【大魔法師 ‧ 吉倫】專屬 4 幀動態懸浮與奧術光環 NPC 序列圖
+        function buildLineageWizardNpcSheet(scene) {
+            const fw = 128;
+            const fh = 144;
+            const frames = 4;
+            const sheet = document.createElement('canvas');
+            sheet.width = fw * frames;
+            sheet.height = fh;
+            const ctx = sheet.getContext('2d');
+
+            const rawImg = getAssetImage('char_mage_raw.jpg', 'mage', scene);
+            const cleanMage = rawImg ? extractLineageSubjectCanvas(rawImg, 280, false) : null;
+
+            for (let f = 0; f < frames; f++) {
+                const ox = f * fw;
+                const cx = ox + fw * 0.5;
+                const phase = (f / frames) * Math.PI * 2;
+                const floatY = Math.sin(phase) * 3.5;
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.rect(ox, 0, fw, fh);
+                ctx.clip();
+
+                // 1. 腳底黃金奧術六芒星陣
+                const ringY = fh - 18;
+                ctx.save();
+                ctx.translate(cx, ringY);
+                ctx.fillStyle = 'rgba(10, 25, 55, 0.55)';
+                ctx.beginPath();
+                ctx.ellipse(0, 0, 44, 18, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#ffdd66';
+                ctx.lineWidth = 2.2;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, 42, 16, 0, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.strokeStyle = '#55ddff';
+                ctx.lineWidth = 1.4;
+                for (let k = 0; k < 6; k++) {
+                    const a1 = phase * 0.5 + (k * Math.PI) / 3;
+                    const a2 = phase * 0.5 + (((k + 2) % 6) * Math.PI) / 3;
+                    ctx.beginPath();
+                    ctx.moveTo(Math.cos(a1) * 34, Math.sin(a1) * 13);
+                    ctx.lineTo(Math.cos(a2) * 34, Math.sin(a2) * 13);
+                    ctx.stroke();
+                }
+                ctx.restore();
+
+                // 2. 繪製大魔法師本體 (搭配神聖紫金光暈)
+                if (cleanMage) {
+                    const fitScale = Math.min((fw * 0.72) / cleanMage.width, (fh * 0.76) / cleanMage.height);
+                    const dw = Math.round(cleanMage.width * fitScale);
+                    const dh = Math.round(cleanMage.height * fitScale);
+                    const dx = Math.round(cx - dw * 0.5);
+                    const dy = Math.round(fh - dh - 14 + floatY);
+
+                    ctx.save();
+                    ctx.shadowColor = '#66ccff';
+                    ctx.shadowBlur = 10;
+                    ctx.drawImage(cleanMage, dx, dy, dw, dh);
+                    ctx.restore();
+                } else {
+                    // 備用繪製大魔法師長袍與法杖
+                    ctx.fillStyle = '#223377';
+                    ctx.beginPath();
+                    ctx.moveTo(cx, 34 + floatY);
+                    ctx.lineTo(cx - 28, fh - 16);
+                    ctx.lineTo(cx + 28, fh - 16);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+
+                // 3. 環繞大魔法師的三顆懸浮奧術法球與聖冠光輝
+                for (let orb = 0; orb < 3; orb++) {
+                    const oa = phase + (orb * Math.PI * 2) / 3;
+                    const oxPos = cx + Math.cos(oa) * 38;
+                    const oyPos = fh * 0.48 + Math.sin(oa) * 14 + floatY;
+                    const grad = ctx.createRadialGradient(oxPos, oyPos, 1, oxPos, oyPos, 9);
+                    grad.addColorStop(0, '#ffffff');
+                    grad.addColorStop(0.5, orb === 0 ? '#ffee66' : (orb === 1 ? '#55ddff' : '#cc77ff'));
+                    grad.addColorStop(1, 'rgba(0, 180, 255, 0)');
+                    ctx.fillStyle = grad;
+                    ctx.beginPath();
+                    ctx.arc(oxPos, oyPos, 9, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                ctx.restore();
+            }
+
+            if (scene.textures.exists('npc_wizard')) scene.textures.remove('npc_wizard');
+            scene.textures.addSpriteSheet('npc_wizard', sheet, { frameWidth: fw, frameHeight: fh });
+            return true;
+        }
+
+        // 非同步分批註冊與合成所有序列圖，讓視覺化載入進度條 (Preloader) 平滑更新且不阻塞手機/平板主執行緒
+        function registerPreloadedAssetsAsync(scene, onComplete) {
             const addImg = (key, fileName) => {
                 const img = getAssetImage(fileName, key, scene);
                 if (img && img.width) {
@@ -1565,90 +1808,160 @@
                 }
             };
 
-            addImg('grass', 'strawberry.png');
-            addImg('tree', 'tree.png');
+            const tasks = [];
 
-            if (typeof ItemDict !== 'undefined') {
-                for (let key in ItemDict) {
-                    if (ItemDict[key].image) {
-                        addImg(key, ItemDict[key].image);
+            // 階段 1: 基礎道具與環境圖片
+            tasks.push({
+                pct: 48,
+                label: '正在載入武器、防具與藥水圖示...',
+                fn: () => {
+                    addImg('grass', 'strawberry.png');
+                    addImg('tree', 'tree.png');
+                    if (typeof ItemDict !== 'undefined') {
+                        for (let key in ItemDict) {
+                            if (ItemDict[key].image) addImg(key, ItemDict[key].image);
+                        }
+                    }
+                    buildLineageSpellIcons(scene);
+                }
+            });
+
+            // 階段 2: 三大職業角色與大魔法師 NPC
+            tasks.push({
+                pct: 55,
+                label: '正在鍛造三大職業與大魔法師 NPC 動作序列圖...',
+                fn: () => {
+                    if (!buildLineageCharacterSheet(scene, 'knight', 'char_knight_raw.jpg', 'knight.png', false, 'knight')) {
+                        addSheet('knight', 'knight.png', 53, 115);
+                    }
+                    if (!buildLineageCharacterSheet(scene, 'elf', 'char_elf_raw.jpg', 'elf.png', false, 'elf')) {
+                        addSheet('elf', 'elf.png', 53, 115);
+                    }
+                    if (!buildLineageCharacterSheet(scene, 'mage', 'char_mage_raw.jpg', 'minge5.png', true, 'mage')) {
+                        addSheet('mage', 'minge5.png', 53, 115);
+                    }
+                    buildLineageWizardNpcSheet(scene);
+                }
+            });
+
+            // 階段 3: 飛行投射物特效
+            tasks.push({
+                pct: 62,
+                label: '正在合成弓箭與元素投射物特效...',
+                fn: () => {
+                    if (!buildLineageProjectileSheet(scene, 'arrow', 'fx_elf_arrow_raw.jpg', 'arrow.png', 'elf_arrow')) {
+                        addSheet('arrow', 'arrow.png', 109, 47);
+                    }
+                    if (!buildLineageProjectileSheet(scene, 'eff_magicarrow', 'fx_mage_bolt_raw.jpg', 'magic-arrow.png', 'mage_bolt')) {
+                        addSheet('eff_magicarrow', 'magic-arrow.png', 281, 132);
+                    }
+                    if (!buildLineageProjectileSheet(scene, 'eff_firearrow', 'fx_fire_arrow_raw.jpg', 'firearrow.png', 'fire_arrow')) {
+                        addSheet('eff_firearrow', 'firearrow.png', 110, 105);
+                    }
+                    buildLineageProjectileSheet(scene, 'eff_windblade', 'fx_wind_blade_raw.jpg', 'arrow.png', 'wind_blade');
+                    buildLineageProjectileSheet(scene, 'eff_ice_dagger', 'fx_ice_dagger_raw.jpg', 'magic-arrow.png', 'ice_shard');
+                    buildLineageProjectileSheet(scene, 'eff_fireball_proj', 'fx_fireball_proj_raw.jpg', 'firearrow.png', 'fire_arrow');
+
+                    if (!buildLineageProjectileSheet(scene, 'fireball', 'fx_boss_fireball_raw.jpg', 'firearrow.png', 'boss_fireball')) {
+                        if (scene.textures.exists('fireball')) scene.textures.remove('fireball');
+                        const fbCanvas = document.createElement('canvas');
+                        fbCanvas.width = 64 * 5;
+                        fbCanvas.height = 64;
+                        const fCtx = fbCanvas.getContext('2d');
+                        for (let i = 0; i < 5; i++) {
+                            const cx = i * 64 + 32, cy = 32, r = 18 + (i % 2) * 3;
+                            const grad = fCtx.createRadialGradient(cx, cy, 2, cx, cy, r);
+                            grad.addColorStop(0, '#ffffff');
+                            grad.addColorStop(0.35, '#ff66ff');
+                            grad.addColorStop(0.7, '#9900cc');
+                            grad.addColorStop(1, 'rgba(80,0,120,0)');
+                            fCtx.fillStyle = grad;
+                            fCtx.beginPath();
+                            fCtx.arc(cx, cy, r, 0, Math.PI * 2);
+                            fCtx.fill();
+                        }
+                        scene.textures.addSpriteSheet('fireball', fbCanvas, { frameWidth: 64, frameHeight: 64 });
                     }
                 }
+            });
+
+            // 階段 4: 分批合成 34 種天堂魔法動畫 (每批 5 個，讓進度條即時推進)
+            const spellKeys = Object.keys(MagicDict);
+            const batchSize = 5;
+            for (let i = 0; i < spellKeys.length; i += batchSize) {
+                const slice = spellKeys.slice(i, i + batchSize);
+                const progress = 64 + Math.round(((i + slice.length) / spellKeys.length) * 20);
+                tasks.push({
+                    pct: progress,
+                    label: `正在編織亞丁魔法特效 (${Math.min(i + slice.length, spellKeys.length)}/${spellKeys.length})...`,
+                    fn: () => {
+                        slice.forEach(spellId => {
+                            const sp = MagicDict[spellId];
+                            if (sp && sp.texKey) {
+                                const fallbackPng = (sp.element === 'fire' || sp.element === 'earth') ? 'fire-storm.png' : 'lesser-heal.png';
+                                buildLineageSpellSheet(scene, sp.texKey, sp.rawIcon, fallbackPng, sp.spellStyle || spellId);
+                            }
+                        });
+                    }
+                });
             }
 
-            // 使用 Google Imagen 3.0 重新繪製的三大職業角色圖合成 16 幀高細緻度動作序列圖
-            if (!buildLineageCharacterSheet(scene, 'knight', 'char_knight_raw.jpg', 'knight.png', false, 'knight')) {
-                addSheet('knight', 'knight.png', 53, 115);
-            }
-            if (!buildLineageCharacterSheet(scene, 'elf', 'char_elf_raw.jpg', 'elf.png', false, 'elf')) {
-                addSheet('elf', 'elf.png', 53, 115);
-            }
-            if (!buildLineageCharacterSheet(scene, 'mage', 'char_mage_raw.jpg', 'minge5.png', true, 'mage')) {
-                addSheet('mage', 'minge5.png', 53, 115);
-            }
-
-            // 使用 Google Imagen 3.0 重新繪製的飛行投射物合成 8 幀動態序列圖 (每個投射魔法皆有專屬序列圖)
-            if (!buildLineageProjectileSheet(scene, 'arrow', 'fx_elf_arrow_raw.jpg', 'arrow.png', 'elf_arrow')) {
-                addSheet('arrow', 'arrow.png', 109, 47);
-            }
-            if (!buildLineageProjectileSheet(scene, 'eff_magicarrow', 'fx_mage_bolt_raw.jpg', 'magic-arrow.png', 'mage_bolt')) {
-                addSheet('eff_magicarrow', 'magic-arrow.png', 281, 132);
-            }
-            if (!buildLineageProjectileSheet(scene, 'eff_firearrow', 'fx_fire_arrow_raw.jpg', 'firearrow.png', 'fire_arrow')) {
-                addSheet('eff_firearrow', 'firearrow.png', 110, 105);
-            }
-            buildLineageProjectileSheet(scene, 'eff_windblade', 'fx_wind_blade_raw.jpg', 'arrow.png', 'wind_blade');
-            buildLineageProjectileSheet(scene, 'eff_ice_dagger', 'fx_ice_dagger_raw.jpg', 'magic-arrow.png', 'ice_shard');
-            buildLineageProjectileSheet(scene, 'eff_fireball_proj', 'fx_fireball_proj_raw.jpg', 'firearrow.png', 'fire_arrow');
-
-            if (!buildLineageProjectileSheet(scene, 'fireball', 'fx_boss_fireball_raw.jpg', 'firearrow.png', 'boss_fireball')) {
-                if (scene.textures.exists('fireball')) scene.textures.remove('fireball');
-                const fbCanvas = document.createElement('canvas');
-                fbCanvas.width = 64 * 5;
-                fbCanvas.height = 64;
-                const fCtx = fbCanvas.getContext('2d');
-                for (let i = 0; i < 5; i++) {
-                    const cx = i * 64 + 32, cy = 32, r = 18 + (i % 2) * 3;
-                    const grad = fCtx.createRadialGradient(cx, cy, 2, cx, cy, r);
-                    grad.addColorStop(0, '#ffffff');
-                    grad.addColorStop(0.35, '#ff66ff');
-                    grad.addColorStop(0.7, '#9900cc');
-                    grad.addColorStop(1, 'rgba(80,0,120,0)');
-                    fCtx.fillStyle = grad;
-                    fCtx.beginPath();
-                    fCtx.arc(cx, cy, r, 0, Math.PI * 2);
-                    fCtx.fill();
-                }
-                scene.textures.addSpriteSheet('fireball', fbCanvas, { frameWidth: 64, frameHeight: 64 });
-            }
-
-            // 為 MagicDict 中全部 34 種魔法逐一生成各自獨立的 12 幀專屬施法動畫序列圖
-            for (let spellId in MagicDict) {
-                const sp = MagicDict[spellId];
-                if (sp.texKey) {
-                    const fallbackPng = (sp.element === 'fire' || sp.element === 'earth') ? 'fire-storm.png' : 'lesser-heal.png';
-                    buildLineageSpellSheet(scene, sp.texKey, sp.rawIcon, fallbackPng, sp.spellStyle || spellId);
-                }
-            }
-
-            buildLineageSpellIcons(scene);
-
-            // 使用 Google Imagen 3.0 重新繪製的 10 大怪物與 Boss 合成 8 幀流暢行走與攻擊序列圖
+            // 階段 5: 分批合成 10 大怪物與 Boss 序列圖
             if (typeof MonsterDictionary !== 'undefined') {
-                for (let key in MonsterDictionary) {
-                    const m = MonsterDictionary[key];
-                    if (!buildLineageMonsterSheet(scene, m)) {
-                        let img = getAssetImage(m.image, m.id, scene);
-                        if (!img && m.image.includes('_')) {
-                            img = getAssetImage(m.image.replace('_', ' '), m.id, scene);
+                const mKeys = Object.keys(MonsterDictionary);
+                for (let i = 0; i < mKeys.length; i += 4) {
+                    const mSlice = mKeys.slice(i, i + 4);
+                    const progress = 85 + Math.round(((i + mSlice.length) / mKeys.length) * 8);
+                    tasks.push({
+                        pct: progress,
+                        label: `正在召喚亞丁大陸怪物與首領 (${Math.min(i + mSlice.length, mKeys.length)}/${mKeys.length})...`,
+                        fn: () => {
+                            mSlice.forEach(key => {
+                                const m = MonsterDictionary[key];
+                                if (!buildLineageMonsterSheet(scene, m)) {
+                                    let img = getAssetImage(m.image, m.id, scene);
+                                    if (!img && m.image.includes('_')) {
+                                        img = getAssetImage(m.image.replace('_', ' '), m.id, scene);
+                                    }
+                                    if (img && img.width) {
+                                        if (scene.textures.exists(m.id)) scene.textures.remove(m.id);
+                                        scene.textures.addImage(m.id, img);
+                                    }
+                                }
+                            });
                         }
-                        if (img && img.width) {
-                            if (scene.textures.exists(m.id)) scene.textures.remove(m.id);
-                            scene.textures.addImage(m.id, img);
-                        }
-                    }
+                    });
                 }
             }
+
+            // 階段 6: 鋪設 3x3 九倍大無縫世界地圖
+            tasks.push({
+                pct: 97,
+                label: '正在建構 3x3 亞丁大陸世界地圖與說話之島廣場...',
+                fn: () => {
+                    buildLineageWorldMap(scene);
+                }
+            });
+
+            let idx = 0;
+            function runNext() {
+                if (idx >= tasks.length) {
+                    updatePreloaderUI(100, '載入完成！準備進入亞丁大陸...');
+                    if (onComplete) onComplete();
+                    return;
+                }
+                const currentTask = tasks[idx++];
+                updatePreloaderUI(currentTask.pct, currentTask.label);
+                setTimeout(() => {
+                    try {
+                        currentTask.fn();
+                    } catch (e) {
+                        console.warn('Preload task warning:', e);
+                    }
+                    runNext();
+                }, 16);
+            }
+            runNext();
         }
 
         function preload() {
@@ -1656,6 +1969,9 @@
             if (window.DecodedImages && Object.keys(window.DecodedImages).length > 0) {
                 return;
             }
+            this.load.on('progress', function (value) {
+                updatePreloaderUI(10 + Math.round(value * 35), `正在下載遊戲圖資 (${Math.round(value * 100)}%)...`);
+            });
             this.load.image('grass', 'strawberry.png'); 
             this.load.image('tree', 'tree.png'); 
             this.load.image('raw_map_grass', 'map_grass.jpg');
@@ -1718,16 +2034,17 @@
             return text;
         }
 
-        function getMagicTooltipText(id) {
+        function getMagicTooltipText(id, showPrice = false) {
             let m = MagicDict[id];
             if (!m) return "";
             let tierName = (MagicTierConfig[m.tier] && MagicTierConfig[m.tier].name) ? MagicTierConfig[m.tier].name : `${m.tier}級魔法`;
-            return `【${m.name}】(${tierName})\n消耗 MP: ${m.mp}\n說明: ${m.desc}`;
+            let priceStr = showPrice ? ` ｜ 學費: ${getSpellLearnPrice(id)} G` : '';
+            return `【${m.name}】(${tierName})\n消耗 MP: ${m.mp}${priceStr}\n說明: ${m.desc}`;
         }
 
         function getTooltipPos(pointer) {
-            let x = pointer.x > 600 ? pointer.x - 180 : pointer.x + 15;
-            let y = pointer.y > 450 ? pointer.y - 80 : pointer.y + 15;
+            let x = pointer.x > 580 ? pointer.x - 190 : pointer.x + 15;
+            let y = pointer.y > 440 ? pointer.y - 90 : pointer.y + 15;
             return { x: x, y: y };
         }
 
@@ -1745,6 +2062,7 @@
         function saveGame(silent = false) {
             if (!isPlaying || !player || player.isDead) return;
             const saveData = {
+                worldVersion: 2,
                 playerClass: player.playerClass,
                 level: player.level, exp: player.exp, maxExp: player.maxExp, statPoints: player.statPoints,
                 hp: player.hp, maxHp: player.maxHp, mp: player.mp, maxMp: player.maxMp,
@@ -1753,6 +2071,8 @@
                 inventory: JSON.parse(JSON.stringify(player.inventory)),
                 equipment: JSON.parse(JSON.stringify(player.equipment)),
                 spells: JSON.parse(JSON.stringify(player.spells)),
+                magicHotkeys: JSON.parse(JSON.stringify(player.magicHotkeys || new Array(MAGIC_HOTKEY_COUNT).fill(null))),
+                currentHotkeyIndex: currentHotkeyIndex,
                 x: player.x, y: player.y
             };
             window.memorySaveFallback = saveData;
@@ -1986,7 +2306,7 @@
             extractCleanSprite(getAssetImage('map_teleport_obelisk.jpg', 'raw_teleport_obelisk', scene), 'lineage_obelisk', 155);
         }
 
-        // 建立《天堂1》(Lineage 1) 風格精緻世界地圖
+        // 建立《天堂1》(Lineage 1) 風格 3x3 九倍大世界地圖 (18000 x 18000，中央出生點 9000, 9000)
         function buildLineageWorldMap(scene) {
             prepareLineageMapTextures(scene);
 
@@ -2001,41 +2321,57 @@
             const shopKey = scene.textures.exists('lineage_shop') ? 'lineage_shop' : null;
             const obeliskKey = scene.textures.exists('lineage_obelisk') ? 'lineage_obelisk' : null;
 
-            // 1. 底層：亞丁大陸暗黑寫實無縫草地 + 北方妖精森林翠綠苔原草地
-            scene.add.tileSprite(0, 0, WORLD_WIDTH, WORLD_HEIGHT, grassKey).setOrigin(0, 0).setDepth(-20);
-            scene.add.tileSprite(0, 0, WORLD_WIDTH, 1950, elvenGrassKey).setOrigin(0, 0).setDepth(-19).setAlpha(0.88);
+            const cx = TOWN_CENTER_X; // 9000
+            const cy = TOWN_CENTER_Y; // 9000
+
+            // 1. 底層：3x3 九倍大亞丁大陸無縫草地 (以 3x3 個 6000x6000 區塊鋪設，確保行動裝置與 Canvas/WebGL 渲染器皆穩定清晰)
+            const chunkSize = 6000;
+            for (let gy = 0; gy < 3; gy++) {
+                for (let gx = 0; gx < 3; gx++) {
+                    const bx = gx * chunkSize;
+                    const by = gy * chunkSize;
+                    scene.add.tileSprite(bx, by, chunkSize, chunkSize, grassKey).setOrigin(0, 0).setDepth(-20);
+                    if (gy === 0) {
+                        scene.add.tileSprite(bx, by, chunkSize, 5800, elvenGrassKey).setOrigin(0, 0).setDepth(-19).setAlpha(0.88);
+                    }
+                }
+            }
             scene.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
 
-            // 2. 十字古道：連接村莊與四大狩獵區的黃土石礫道路
-            const roadWidth = 136;
-            scene.add.tileSprite(0, 3000 - roadWidth / 2, WORLD_WIDTH, roadWidth, dirtKey).setOrigin(0, 0).setDepth(-16).setAlpha(0.95);
-            scene.add.tileSprite(3000 - roadWidth / 2, 0, roadWidth, WORLD_HEIGHT, dirtKey).setOrigin(0, 0).setDepth(-16).setAlpha(0.95);
+            // 2. 十字主幹古道與外圍環道：連接中央村莊與八大狩獵區的黃土石礫道路 (分段 6000px 鋪設)
+            const roadWidth = 144;
+            for (let seg = 0; seg < 3; seg++) {
+                scene.add.tileSprite(seg * chunkSize, cy - roadWidth / 2, chunkSize, roadWidth, dirtKey).setOrigin(0, 0).setDepth(-16).setAlpha(0.95);
+                scene.add.tileSprite(cx - roadWidth / 2, seg * chunkSize, roadWidth, chunkSize, dirtKey).setOrigin(0, 0).setDepth(-16).setAlpha(0.95);
+            }
 
-            // 道路邊緣石砌路緣與荒野地貌細節
+            // 道路邊緣石砌路緣
             const mapDeco = scene.add.graphics().setDepth(-15);
             mapDeco.lineStyle(4, 0x221d15, 0.65);
-            // 東西向路緣
-            mapDeco.strokeRect(0, 3000 - roadWidth / 2, WORLD_WIDTH, roadWidth);
-            // 南北向路緣
-            mapDeco.strokeRect(3000 - roadWidth / 2, 0, roadWidth, WORLD_HEIGHT);
+            mapDeco.strokeRect(0, cy - roadWidth / 2, WORLD_WIDTH, roadWidth);
+            mapDeco.strokeRect(cx - roadWidth / 2, 0, roadWidth, WORLD_HEIGHT);
 
             // 沿途古道石板殘跡
-            for (let pos = 200; pos < WORLD_WIDTH - 200; pos += 180) {
-                if (Math.abs(pos - 3000) > 460) {
+            for (let pos = 300; pos < WORLD_WIDTH - 300; pos += 220) {
+                if (Math.abs(pos - cx) > 520) {
                     mapDeco.fillStyle(0x4a463d, 0.45);
-                    mapDeco.fillRoundedRect(pos, 3000 - roadWidth / 2 - 8, 36, 14, 4);
-                    mapDeco.fillRoundedRect(pos + 60, 3000 + roadWidth / 2 - 6, 36, 14, 4);
-                    mapDeco.fillRoundedRect(3000 - roadWidth / 2 - 8, pos, 14, 36, 4);
-                    mapDeco.fillRoundedRect(3000 + roadWidth / 2 - 6, pos + 60, 14, 36, 4);
+                    mapDeco.fillRoundedRect(pos, cy - roadWidth / 2 - 8, 36, 14, 4);
+                    mapDeco.fillRoundedRect(pos + 60, cy + roadWidth / 2 - 6, 36, 14, 4);
+                    mapDeco.fillRoundedRect(cx - roadWidth / 2 - 8, pos, 14, 36, 4);
+                    mapDeco.fillRoundedRect(cx + roadWidth / 2 - 6, pos + 60, 14, 36, 4);
                 }
             }
 
-            // 3. 四大遠征據點石板祭壇 (北：妖精森林、南：龍之谷、西：古魯丁荒野、東：奇岩邊境)
+            // 3. 八大遠征據點石板祭壇 (分佈於 3x3 擴大世界的八個方位區域)
             const outposts = [
-                { x: 3000, y: 1200, radius: 220, ringColor: 0x336644, title: '【 妖精森林傳送祭壇 】' },
-                { x: 3000, y: 4800, radius: 220, ringColor: 0x663322, title: '【 龍之谷遠征祭壇 】' },
-                { x: 1200, y: 3000, radius: 200, ringColor: 0x445566, title: '【 古魯丁荒野祭壇 】' },
-                { x: 4800, y: 3000, radius: 200, ringColor: 0x665533, title: '【 奇岩邊境祭壇 】' }
+                { x: 9000, y: 3000,  radius: 240, ringColor: 0x336644, title: '【 北方 ‧ 妖精森林傳送祭壇 】' },
+                { x: 9000, y: 15000, radius: 240, ringColor: 0x663322, title: '【 南方 ‧ 龍之谷遠征祭壇 】' },
+                { x: 3000, y: 9000,  radius: 220, ringColor: 0x445566, title: '【 西方 ‧ 古魯丁荒野祭壇 】' },
+                { x: 15000, y: 9000, radius: 220, ringColor: 0x665533, title: '【 東方 ‧ 奇岩邊境祭壇 】' },
+                { x: 3400, y: 3400,  radius: 210, ringColor: 0x226655, title: '【 西北 ‧ 眠龍洞穴前哨祭壇 】' },
+                { x: 14600, y: 3400, radius: 210, ringColor: 0x446688, title: '【 東北 ‧ 歐瑞雪域邊境祭壇 】' },
+                { x: 3400, y: 14600, radius: 210, ringColor: 0x775522, title: '【 西南 ‧ 風木荒漠祭壇 】' },
+                { x: 14600, y: 14600,radius: 210, ringColor: 0x772244, title: '【 東南 ‧ 亞丁王都前哨祭壇 】' }
             ];
             outposts.forEach(op => {
                 scene.add.tileSprite(op.x - op.radius, op.y - op.radius, op.radius * 2, op.radius * 2, cobbleKey)
@@ -2049,18 +2385,17 @@
                 }).setOrigin(0.5).setDepth(-10).setAlpha(0.85);
             });
 
-            // 4. 中央主城廣場：【說話之島村莊 / 奇岩廣場】 (座標 2620 ~ 3380)
-            const plazaSize = 760;
+            // 4. 中央主城出生廣場：【說話之島村莊 ‧ 聖騎士廣場】 (座標 8580 ~ 9420)
+            const plazaSize = 840;
             const plazaHalf = plazaSize / 2;
-            const pLeft = 3000 - plazaHalf;
-            const pTop = 3000 - plazaHalf;
-            const pRight = 3000 + plazaHalf;
-            const pBottom = 3000 + plazaHalf;
+            const pLeft = cx - plazaHalf;
+            const pTop = cy - plazaHalf;
+            const pRight = cx + plazaHalf;
+            const pBottom = cy + plazaHalf;
 
             scene.add.tileSprite(pLeft, pTop, plazaSize, plazaSize, cobbleKey).setOrigin(0, 0).setDepth(-12);
 
             const townGraphics = scene.add.graphics().setDepth(-11);
-            // 廣場外圍雙層石垣與暗角陰影
             townGraphics.lineStyle(14, 0x1a1814, 0.75);
             townGraphics.strokeRect(pLeft - 6, pTop - 6, plazaSize + 12, plazaSize + 12);
             townGraphics.lineStyle(6, 0x6e685c, 0.9);
@@ -2068,23 +2403,23 @@
             townGraphics.lineStyle(2, 0x9c9484, 0.7);
             townGraphics.strokeRect(pLeft + 10, pTop + 10, plazaSize - 20, plazaSize - 20);
 
-            // 中央魔法石陣紋章 (位於噴水池下方 3000, 2835)
+            // 中央魔法石陣紋章
             townGraphics.lineStyle(3, 0x4488aa, 0.45);
-            townGraphics.strokeCircle(3000, 2835, 145);
+            townGraphics.strokeCircle(cx, cy - 165, 145);
             townGraphics.lineStyle(2, 0x88ccff, 0.35);
-            townGraphics.strokeCircle(3000, 2835, 128);
+            townGraphics.strokeCircle(cx, cy - 165, 128);
 
             // 村莊地標文字
-            scene.add.text(3000, 2665, '【 說話之島 ‧ 聖騎士廣場 】', {
+            scene.add.text(cx, pTop + 38, '【 說話之島 ‧ 聖騎士安全廣場 (出生地) 】', {
                 fontSize: '18px', fill: '#e8d8a8', fontStyle: 'bold', stroke: '#111111', strokeThickness: 4
-            }).setOrigin(0.5).setDepth(-10).setAlpha(0.88);
+            }).setOrigin(0.5).setDepth(-10).setAlpha(0.92);
 
             obstacles = scene.physics.add.staticGroup();
 
-            // 5. 廣場中央聖騎士魔法噴水池 (設於 3000, 2835，讓出生於 3000, 3000 的玩家正好站在噴水池正前方)
+            // 5. 廣場中央聖騎士魔法噴水池 (位於 9000, 8825)
             if (fountainKey) {
-                scene.add.ellipse(3000, 2865, 220, 120, 0x000000, 0.45).setDepth(-9);
-                const fountainGlow = scene.add.circle(3000, 2840, 95, 0x00aaff, 0.18).setDepth(-8);
+                scene.add.ellipse(cx, cy - 145, 220, 120, 0x000000, 0.45).setDepth(-9);
+                const fountainGlow = scene.add.circle(cx, cy - 170, 95, 0x00aaff, 0.18).setDepth(-8);
                 scene.tweens.add({
                     targets: fountainGlow,
                     scale: { from: 0.95, to: 1.12 },
@@ -2094,29 +2429,100 @@
                     repeat: -1
                 });
 
-                const fountain = obstacles.create(3000, 2835, fountainKey);
-                fountain.setDepth(2835);
+                const fountain = obstacles.create(cx, cy - 175, fountainKey);
+                fountain.setDepth(cy - 175);
                 fountain.body.setSize(fountain.width * 0.68, fountain.height * 0.36);
                 fountain.body.setOffset(fountain.width * 0.16, fountain.height * 0.56);
             }
 
-            // 5b. 廣場西側【亞丁武器與藥水商店】建築 (點擊可直接開啟商店)
+            // 5b. 廣場西側【亞丁武器與藥水商店】建築 (需回到出生地點擊此商店購買與販售道具)
             if (shopKey) {
-                scene.add.ellipse(2755, 2815, 200, 100, 0x000000, 0.45).setDepth(-9);
-                const shopBuilding = obstacles.create(2755, 2775, shopKey);
-                shopBuilding.setDepth(2775).setInteractive({ useHandCursor: true });
+                const shopX = cx - 235;
+                const shopY = cy - 185;
+                scene.add.ellipse(shopX, shopY + 40, 200, 100, 0x000000, 0.45).setDepth(-9);
+                const shopBuilding = obstacles.create(shopX, shopY, shopKey);
+                shopBuilding.setDepth(shopY).setInteractive({ useHandCursor: true });
                 shopBuilding.body.setSize(shopBuilding.width * 0.72, shopBuilding.height * 0.36);
                 shopBuilding.body.setOffset(shopBuilding.width * 0.14, shopBuilding.height * 0.56);
+                shopBuilding.isShopBuilding = true;
+                shopBuildingEntity = shopBuilding;
+
                 shopBuilding.on('pointerdown', (pointer, lx, ly, event) => {
                     if (event) event.stopPropagation();
-                    if (isPlaying && player && !player.isDead) toggleShop();
+                    if (!isPlaying || !player || player.isDead) return;
+                    const dist = Phaser.Math.Distance.Between(player.x, player.y, shopX, shopY + 60);
+                    if (dist <= 360) {
+                        if (isWizardShopOpen) toggleWizardShop(false);
+                        toggleShop(true);
+                    } else {
+                        pendingNpcAction = 'shop';
+                        targetEntity = null;
+                        targetPoint = new Phaser.Math.Vector2(shopX, shopY + 85);
+                        mainScene.physics.moveToObject(player, targetPoint, player.speed);
+                        safePlayAnim(player, player.playerClass + '-walk');
+                        player.setFlipX(targetPoint.x < player.x);
+                        showFloatingText('前往武器藥水商店...', player, '#ffcc44');
+                    }
                 });
-                scene.add.text(2755, 2675, '🛒 武器藥水商店 (點擊交易)', {
-                    fontSize: '13px', fill: '#ffcc44', fontStyle: 'bold', stroke: '#000000', strokeThickness: 3
-                }).setOrigin(0.5).setDepth(2850);
+                scene.add.text(shopX, shopY - 102, '🛒 武器藥水商店 (點擊交易)', {
+                    fontSize: '14px', fill: '#ffcc44', fontStyle: 'bold', stroke: '#000000', strokeThickness: 4, backgroundColor: 'rgba(0,0,0,0.55)', padding: { x: 6, y: 2 }
+                }).setOrigin(0.5).setDepth(shopY + 80);
             }
 
-            // 5c. 四大遠征據點中央【古代符文傳送方尖碑】
+            // 5c. 廣場東側 (出生位置旁)【大魔法師 ‧ 吉倫 NPC】 (在此付費學習 1~8 級天堂魔法)
+            const wizX = cx + 215;
+            const wizY = cy - 95;
+            // 魔法師地面專屬奧術星陣底座
+            const wizPlatform = scene.add.graphics().setDepth(-9);
+            wizPlatform.fillStyle(0x0b162c, 0.72);
+            wizPlatform.fillEllipse(wizX, wizY + 34, 130, 66);
+            wizPlatform.lineStyle(3, 0xffd866, 0.85);
+            wizPlatform.strokeEllipse(wizX, wizY + 34, 126, 62);
+            wizPlatform.lineStyle(2, 0x55ddff, 0.65);
+            wizPlatform.strokeEllipse(wizX, wizY + 34, 102, 48);
+
+            const wizAura = scene.add.circle(wizX, wizY + 10, 58, 0x3399ff, 0.18).setDepth(-8);
+            scene.tweens.add({
+                targets: wizAura,
+                scale: { from: 0.9, to: 1.16 },
+                alpha: { from: 0.12, to: 0.28 },
+                duration: 1400,
+                yoyo: true,
+                repeat: -1
+            });
+
+            createSafeAnim(scene, 'npc_wizard-idle', 'npc_wizard', 0, 3, 5, -1);
+            const wizNpc = obstacles.create(wizX, wizY, 'npc_wizard');
+            wizNpc.setScale(0.95).setDepth(wizY).setInteractive({ useHandCursor: true });
+            wizNpc.body.setSize(54, 42);
+            wizNpc.body.setOffset(37, 86);
+            wizNpc.isWizardNpc = true;
+            wizardNpcEntity = wizNpc;
+            safePlayAnim(wizNpc, 'npc_wizard-idle');
+
+            wizNpc.on('pointerdown', (pointer, lx, ly, event) => {
+                if (event) event.stopPropagation();
+                if (!isPlaying || !player || player.isDead) return;
+                const dist = Phaser.Math.Distance.Between(player.x, player.y, wizX, wizY + 30);
+                if (dist <= 360) {
+                    if (isShopOpen) toggleShop(false);
+                    toggleWizardShop(true);
+                } else {
+                    pendingNpcAction = 'wizard';
+                    targetEntity = null;
+                    targetPoint = new Phaser.Math.Vector2(wizX - 30, wizY + 55);
+                    mainScene.physics.moveToObject(player, targetPoint, player.speed);
+                    safePlayAnim(player, player.playerClass + '-walk');
+                    player.setFlipX(targetPoint.x < player.x);
+                    showFloatingText('前往大魔法師處學習魔法...', player, '#66ddff');
+                }
+            });
+
+            scene.add.text(wizX, wizY - 76, '🧙 大魔法師 ‧ 吉倫 (點擊付費學魔法)', {
+                fontSize: '14px', fill: '#66eeff', fontStyle: 'bold', stroke: '#000000', strokeThickness: 4, backgroundColor: 'rgba(8,16,36,0.68)', padding: { x: 6, y: 2 }
+            }).setOrigin(0.5).setDepth(wizY + 90);
+
+            // 5d. 八大遠征據點中央【古代符文傳送方尖碑】
             if (obeliskKey) {
                 outposts.forEach(op => {
                     scene.add.ellipse(op.x, op.y + 36, 95, 48, 0x000000, 0.45).setDepth(-9);
@@ -2138,15 +2544,14 @@
 
             // 6. 村莊城門火盆與光暈 (四方城門口與廣場四角)
             const brazierPositions = [
-                { x: 2910, y: pTop + 18 }, { x: 3090, y: pTop + 18 },
-                { x: 2910, y: pBottom - 18 }, { x: 3090, y: pBottom - 18 },
-                { x: pLeft + 18, y: 2910 }, { x: pLeft + 18, y: 3090 },
-                { x: pRight - 18, y: 2910 }, { x: pRight - 18, y: 3090 },
+                { x: cx - 90, y: pTop + 18 }, { x: cx + 90, y: pTop + 18 },
+                { x: cx - 90, y: pBottom - 18 }, { x: cx + 90, y: pBottom - 18 },
+                { x: pLeft + 18, y: cy - 90 }, { x: pLeft + 18, y: cy + 90 },
+                { x: pRight - 18, y: cy - 90 }, { x: pRight - 18, y: cy + 90 },
                 { x: pLeft + 36, y: pTop + 36 }, { x: pRight - 36, y: pTop + 36 },
                 { x: pLeft + 36, y: pBottom - 36 }, { x: pRight - 36, y: pBottom - 36 }
             ];
             brazierPositions.forEach(bp => {
-                // 石柱底座與火焰光暈
                 const bGraphic = scene.add.graphics().setDepth(bp.y);
                 bGraphic.fillStyle(0x111111, 0.5);
                 bGraphic.fillEllipse(bp.x, bp.y + 6, 28, 14);
@@ -2170,28 +2575,27 @@
                 });
             });
 
-            // 7. 依據《天堂1》區域生態系佈置森林古木、妖精松樹與龍之谷遺跡石柱
+            // 7. 依據 3x3 九倍大《天堂1》區域生態系佈置森林古木、妖精松樹與龍之谷遺跡石柱
             const shadowGraphics = scene.add.graphics().setDepth(-6);
-            const totalObstacles = 240;
+            const totalObstacles = 1200;
             for (let i = 0; i < totalObstacles; i++) {
-                let rx = Phaser.Math.Between(160, WORLD_WIDTH - 160);
-                let ry = Phaser.Math.Between(160, WORLD_HEIGHT - 160);
+                let rx = Phaser.Math.Between(200, WORLD_WIDTH - 200);
+                let ry = Phaser.Math.Between(200, WORLD_HEIGHT - 200);
 
-                // 避開中央村莊廣場、十字主幹道與四大遠征祭壇
-                const inPlaza = (rx > pLeft - 90 && rx < pRight + 90 && ry > pTop - 90 && ry < pBottom + 90);
-                const onRoad = (Math.abs(rx - 3000) < roadWidth / 2 + 55) || (Math.abs(ry - 3000) < roadWidth / 2 + 55);
-                const inOutpost = outposts.some(op => Math.abs(rx - op.x) < op.radius + 60 && Math.abs(ry - op.y) < op.radius + 60);
+                // 避開中央村莊廣場、十字主幹道與八大遠征祭壇
+                const inPlaza = (rx > pLeft - 110 && rx < pRight + 110 && ry > pTop - 110 && ry < pBottom + 110);
+                const onRoad = (Math.abs(rx - cx) < roadWidth / 2 + 60) || (Math.abs(ry - cy) < roadWidth / 2 + 60);
+                const inOutpost = outposts.some(op => Math.abs(rx - op.x) < op.radius + 70 && Math.abs(ry - op.y) < op.radius + 70);
                 if (inPlaza || onRoad || inOutpost) continue;
 
-                // 根據區域決定地貌類型：北方偏松林(妖精森林)、南方與外圍偏石柱遺跡(龍之谷)、其餘混合古橡木
                 let chosenKey = oakKey;
                 let propType = 'oak';
                 const roll = Math.random();
-                if (ry < 2200) {
+                if (ry < 6000) {
                     if (roll < 0.65) { chosenKey = pineKey; propType = 'pine'; }
                     else if (roll < 0.88) { chosenKey = oakKey; propType = 'oak'; }
                     else { chosenKey = rockKey; propType = 'rock'; }
-                } else if (ry > 3900) {
+                } else if (ry > 12000) {
                     if (roll < 0.45) { chosenKey = rockKey; propType = 'rock'; }
                     else if (roll < 0.75) { chosenKey = oakKey; propType = 'oak'; }
                     else { chosenKey = pineKey; propType = 'pine'; }
@@ -2202,7 +2606,6 @@
                 }
 
                 const scaleJitter = Phaser.Math.FloatBetween(0.92, 1.18);
-                // 繪製地面柔和陰影提升立體感
                 shadowGraphics.fillStyle(0x000000, 0.35);
                 shadowGraphics.fillEllipse(rx, ry + 52 * scaleJitter, 76 * scaleJitter, 34 * scaleJitter);
 
@@ -2222,13 +2625,21 @@
         }
 
         function getLineageRegionName(x, y) {
-            if (Math.abs(x - 3000) <= 400 && Math.abs(y - 3000) <= 400) return '說話之島村莊 (安全廣場)';
-            if (y < 2100 && Math.abs(x - 3000) < 1200) return '妖精森林 (Elven Forest)';
-            if (y > 3900 && Math.abs(x - 3000) < 1200) return '龍之谷荒野 (Dragon Valley)';
-            if (x < 2100) return '古魯丁平原 (Gludio Plains)';
-            if (x > 3900) return '奇岩邊境森林 (Giran Woods)';
-            if (Math.abs(x - 3000) < 100 || Math.abs(y - 3000) < 100) return '亞丁王國十字古道';
-            return '說話之島狩獵場';
+            if (Math.abs(x - TOWN_CENTER_X) <= 440 && Math.abs(y - TOWN_CENTER_Y) <= 440) return '說話之島村莊 (安全廣場)';
+            if (y < 6000) {
+                if (x < 6000) return '西北 ‧ 眠龍洞穴森林 ( ঘুম Dragon Woods)';
+                if (x > 12000) return '東北 ‧ 歐瑞雪域邊境 (Oren Frontier)';
+                return '北方 ‧ 妖精森林 (Elven Forest)';
+            }
+            if (y > 12000) {
+                if (x < 6000) return '西南 ‧ 風木荒漠領地 (Windawood Wastes)';
+                if (x > 12000) return '東南 ‧ 亞丁王都邊境 (Aden Border)';
+                return '南方 ‧ 龍之谷荒野 (Dragon Valley)';
+            }
+            if (x < 6000) return '西方 ‧ 古魯丁平原 (Gludio Plains)';
+            if (x > 12000) return '東方 ‧ 奇岩邊境森林 (Giran Woods)';
+            if (Math.abs(x - TOWN_CENTER_X) < 110 || Math.abs(y - TOWN_CENTER_Y) < 110) return '亞丁王國十字古道';
+            return '說話之島中央狩獵場';
         }
 
         // 安全建立動畫輔助函式，確保圖片幀數完整才註冊動畫，徹底防止攻擊或移動時當機
@@ -2255,37 +2666,7 @@
         function create() {
             mainScene = this; 
 
-            // 將所有預先解碼的角色、怪物、道具、特效圖片直接註冊進 Phaser 材質庫
-            registerPreloadedAssets(this);
-
-            buildLineageWorldMap(this);
-
-            createSafeAnim(this, 'fireball-fly', 'fireball', 0, 7, 18, -1);
-            createSafeAnim(this, 'arrow-fly', 'arrow', 0, 7, 20, -1);
-            createSafeAnim(this, 'play_magicarrow', 'eff_magicarrow', 0, 7, 20, -1);
-            createSafeAnim(this, 'play_firearrow', 'eff_firearrow', 0, 7, 20, -1);
-            createSafeAnim(this, 'play_windblade', 'eff_windblade', 0, 7, 22, -1);
-            createSafeAnim(this, 'play_ice_dagger', 'eff_ice_dagger', 0, 7, 20, -1);
-            createSafeAnim(this, 'play_fireball_proj', 'eff_fireball_proj', 0, 7, 20, -1);
-
-            for (let sKey in MagicDict) {
-                let sp = MagicDict[sKey];
-                if (sp.animKey && sp.texKey) {
-                    createSafeAnim(this, sp.animKey, sp.texKey, 0, 11, 16, 0);
-                }
-            }
-
-            ['knight', 'elf', 'mage'].forEach(cls => {
-                createSafeAnim(this, cls + '-walk', cls, 0, 7, 14, -1);
-                createSafeAnim(this, cls + '-attack', cls, 8, 15, 22, 0);
-            });
-            if (typeof MonsterDictionary !== 'undefined') {
-                for (let mKey in MonsterDictionary) {
-                    createSafeAnim(this, mKey + '-walk', mKey, 0, 3, 8, -1);
-                    createSafeAnim(this, mKey + '-attack', mKey, 4, 7, 14, 0);
-                }
-            }
-
+            // 先行建立基礎 UI 圖層與文字物件，避免非同步載入期間 Phaser 第一幀呼叫 update() 時因 uiGraphics 尚未初始化而中斷渲染迴圈
             uiGraphics = this.add.graphics().setDepth(9999); 
             topTextUI = this.add.text(20, 20, '', { fontSize: '18px', fill: '#ffffff', fontStyle: 'bold', stroke: '#000', strokeThickness: 4 }).setScrollFactor(0).setDepth(9999);
             regionTextUI = this.add.text(20, 46, '', { fontSize: '14px', fill: '#e8d8a8', fontStyle: 'bold', stroke: '#000', strokeThickness: 3 }).setScrollFactor(0).setDepth(9999);
@@ -2295,29 +2676,124 @@
             createStatsUI(this); 
             createShopUI(this); 
             createMagicUI(this); 
-            
-            // 自動讀取存檔處理
-            let autoLoad = false;
-            try {
-                if (sessionStorage.getItem('autoLoadSave') === 'true') {
-                    sessionStorage.removeItem('autoLoadSave');
-                    autoLoad = true;
+            createWizardShopUI(this);
+
+            // 非同步分批註冊與合成所有遊戲圖資，同步更新視覺化載入進度條 (Preloader)
+            registerPreloadedAssetsAsync(this, () => {
+                try {
+                    createSafeAnim(this, 'fireball-fly', 'fireball', 0, 7, 18, -1);
+                    createSafeAnim(this, 'arrow-fly', 'arrow', 0, 7, 20, -1);
+                    createSafeAnim(this, 'play_magicarrow', 'eff_magicarrow', 0, 7, 20, -1);
+                    createSafeAnim(this, 'play_firearrow', 'eff_firearrow', 0, 7, 20, -1);
+                    createSafeAnim(this, 'play_windblade', 'eff_windblade', 0, 7, 22, -1);
+                    createSafeAnim(this, 'play_ice_dagger', 'eff_ice_dagger', 0, 7, 20, -1);
+                    createSafeAnim(this, 'play_fireball_proj', 'eff_fireball_proj', 0, 7, 20, -1);
+
+                    for (let sKey in MagicDict) {
+                        let sp = MagicDict[sKey];
+                        if (sp.animKey && sp.texKey) {
+                            createSafeAnim(this, sp.animKey, sp.texKey, 0, 11, 16, 0);
+                        }
+                    }
+
+                    ['knight', 'elf', 'mage'].forEach(cls => {
+                        createSafeAnim(this, cls + '-walk', cls, 0, 7, 14, -1);
+                        createSafeAnim(this, cls + '-attack', cls, 8, 15, 22, 0);
+                    });
+                    if (typeof MonsterDictionary !== 'undefined') {
+                        for (let mKey in MonsterDictionary) {
+                            createSafeAnim(this, mKey + '-walk', mKey, 0, 3, 8, -1);
+                            createSafeAnim(this, mKey + '-attack', mKey, 4, 7, 14, 0);
+                        }
+                    }
+                } catch (animErr) {
+                    console.warn('Animation init warning:', animErr);
                 }
-            } catch (e) {}
-            if (autoLoad) {
-                let saveData = getSavedGameData();
-                if (saveData) {
-                    startGame(saveData.playerClass, saveData);
+                
+                // 隱藏載入進度條，進入職業選擇或自動讀檔
+                hidePreloaderUI();
+
+                let autoLoad = false;
+                try {
+                    if (sessionStorage.getItem('autoLoadSave') === 'true') {
+                        sessionStorage.removeItem('autoLoadSave');
+                        autoLoad = true;
+                    }
+                } catch (e) {}
+                if (autoLoad) {
+                    let saveData = getSavedGameData();
+                    if (saveData) {
+                        startGame(saveData.playerClass, saveData);
+                    } else {
+                        showClassSelection();
+                    }
                 } else {
                     showClassSelection();
                 }
-            } else {
-                showClassSelection();
-            }
+            });
 
-            this.input.on('dragstart', function (pointer, gameObject) { if (!isInventoryOpen || !gameObject.isInvItem) return; gameObject.startX = gameObject.x; gameObject.startY = gameObject.y; itemTooltip.setVisible(false); });
-            this.input.on('drag', function (pointer, gameObject, dragX, dragY) { if (!isInventoryOpen || !gameObject.isInvItem) return; gameObject.x = dragX; gameObject.y = dragY; });
+            this.input.on('dragstart', function (pointer, gameObject) {
+                if (gameObject.isSpellDragItem) {
+                    itemTooltip.setVisible(false);
+                    draggingSpellId = gameObject.spellId;
+                    draggingFromHotkeyIndex = (typeof gameObject.hotkeySlotIdx === 'number') ? gameObject.hotkeySlotIdx : -1;
+                    if (magicDragGhost) { magicDragGhost.destroy(); magicDragGhost = null; }
+                    const sp = MagicDict[draggingSpellId];
+                    if (sp && mainScene.textures.exists(sp.icon)) {
+                        magicDragGhost = mainScene.add.image(pointer.x, pointer.y, sp.icon)
+                            .setScrollFactor(0).setDepth(30005).setScale(1.05).setAlpha(0.92);
+                    }
+                    return;
+                }
+                if (!isInventoryOpen || !gameObject.isInvItem) return;
+                gameObject.startX = gameObject.x;
+                gameObject.startY = gameObject.y;
+                itemTooltip.setVisible(false);
+            });
+            this.input.on('drag', function (pointer, gameObject, dragX, dragY) {
+                if (gameObject.isSpellDragItem) {
+                    if (magicDragGhost) {
+                        magicDragGhost.setPosition(pointer.x, pointer.y);
+                    }
+                    return;
+                }
+                if (!isInventoryOpen || !gameObject.isInvItem) return;
+                gameObject.x = dragX;
+                gameObject.y = dragY;
+            });
             this.input.on('dragend', function (pointer, gameObject) {
+                if (gameObject.isSpellDragItem) {
+                    if (magicDragGhost) {
+                        magicDragGhost.destroy();
+                        magicDragGhost = null;
+                    }
+                    if (draggingSpellId && player && player.magicHotkeys) {
+                        const targetSlot = getMagicHotkeySlotAtScreenPos(pointer.x, pointer.y);
+                        if (targetSlot !== -1) {
+                            if (draggingFromHotkeyIndex !== -1 && draggingFromHotkeyIndex !== targetSlot) {
+                                const temp = player.magicHotkeys[targetSlot];
+                                player.magicHotkeys[targetSlot] = draggingSpellId;
+                                player.magicHotkeys[draggingFromHotkeyIndex] = temp;
+                            } else {
+                                player.magicHotkeys[targetSlot] = draggingSpellId;
+                            }
+                            currentHotkeyIndex = targetSlot;
+                            const spName = MagicDict[draggingSpellId] ? MagicDict[draggingSpellId].name : '';
+                            showFloatingText(`熱鍵 ${targetSlot + 1} 設定【${spName}】`, player, '#00ffff');
+                            updateMagicHotkeyBarUI();
+                            if (isMagicOpen) updateMagicUI();
+                            saveGame(true);
+                        } else if (draggingFromHotkeyIndex !== -1 && pointer.y < 500) {
+                            player.magicHotkeys[draggingFromHotkeyIndex] = null;
+                            showFloatingText(`已清除魔法熱鍵 ${draggingFromHotkeyIndex + 1}`, player, '#aaaaaa');
+                            updateMagicHotkeyBarUI();
+                            saveGame(true);
+                        }
+                    }
+                    draggingSpellId = null;
+                    draggingFromHotkeyIndex = -1;
+                    return;
+                }
                 if (!isInventoryOpen || !gameObject.isInvItem) return;
                 if (gameObject.isEquipped) { updateInventoryUI(); return; }
                 if (gameObject.x < 550 || gameObject.x > 790 || gameObject.y < 80 || gameObject.y > 510) discardItem(gameObject.invIndex); else updateInventoryUI(); 
@@ -2328,6 +2804,13 @@
             this.input.keyboard.on('keydown-M', toggleMagic); 
             this.input.keyboard.on('keydown-Q', function () { quickUseItem(potionTypes[currentPotionIndex]); });
             this.input.keyboard.on('keydown-E', function () { performMagicAttack(); });
+            // 鍵盤數字鍵 1~8 亦可直接切換對應的魔法熱鍵
+            ['ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT'].forEach((kName, idx) => {
+                this.input.keyboard.on('keydown-' + kName, function () {
+                    if (!isPlaying || !player || player.isDead) return;
+                    selectMagicHotkeySlot(idx, true);
+                });
+            });
 
             this.input.on('pointerdown', function (pointer, gameObjects) {
                 if (pendingEnchantScrollIndex !== -1) { showFloatingText('取消強化', player, '#aaaaaa'); cancelEnchant(); }
@@ -2336,15 +2819,25 @@
                 if (isInventoryOpen && pointer.x >= 550 && pointer.x <= 790 && pointer.y >= 80 && pointer.y <= 510) return; 
                 if (isStatsOpen && pointer.x >= 10 && pointer.x <= 280 && pointer.y >= 80 && pointer.y <= 510) return; 
                 if (isShopOpen && pointer.x >= 290 && pointer.x <= 540 && pointer.y >= 80 && pointer.y <= 510) return;
-                if (isMagicOpen && pointer.x >= 90 && pointer.x <= 550 && pointer.y >= 70 && pointer.y <= 515) return;
+                if (isMagicOpen && pointer.x >= 90 && pointer.x <= 550 && pointer.y >= 65 && pointer.y <= 505) return;
+                if (isWizardShopOpen && pointer.x >= 90 && pointer.x <= 550 && pointer.y >= 65 && pointer.y <= 505) return;
                 
-                // 虛擬搖桿區域防點擊穿透，避免點擊左下角時觸發地圖移動
+                // 虛擬搖桿區域與正下方8格魔法熱鍵區防點擊穿透
                 if (pointer.x <= 200 && pointer.y >= 400) return;
+                if (pointer.x >= 180 && pointer.x <= 500 && pointer.y >= 518) return;
+                if (pointer.x >= 505 && pointer.y >= 450) return;
 
-                if (player.isDead) return; stopAttacking();
+                if (player.isDead) return;
+                stopAttacking();
+                pendingNpcAction = null;
                 
                 let clickedObj = null;
-                if (gameObjects && gameObjects.length > 0) { for (let i = 0; i < gameObjects.length; i++) { if (gameObjects[i].isMonster && !gameObjects[i].isDead) { clickedObj = gameObjects[i]; break; } } }
+                if (gameObjects && gameObjects.length > 0) {
+                    for (let i = 0; i < gameObjects.length; i++) {
+                        if (gameObjects[i].isWizardNpc || gameObjects[i].isShopBuilding) return;
+                        if (gameObjects[i].isMonster && !gameObjects[i].isDead) { clickedObj = gameObjects[i]; break; }
+                    }
+                }
                 
                 if (clickedObj) { targetEntity = clickedObj; targetPoint = new Phaser.Math.Vector2(targetEntity.x, targetEntity.y); } 
                 else { targetEntity = null; targetPoint = new Phaser.Math.Vector2(pointer.worldX, pointer.worldY); }
@@ -2685,12 +3178,20 @@
             joystickActive = false;
             targetPoint = null;
             targetEntity = null;
+            pendingNpcAction = null;
             cancelEnchant();
+
+            if (magicDragGhost) { magicDragGhost.destroy(); magicDragGhost = null; }
+            draggingSpellId = null;
+            draggingFromHotkeyIndex = -1;
 
             if (isInventoryOpen) { isInventoryOpen = false; inventoryUIElements.forEach(el => el.setVisible(false)); invItemsUI.forEach(el => el.destroy()); invItemsUI = []; }
             if (isStatsOpen) { isStatsOpen = false; statsUIElements.forEach(el => el.setVisible(false)); statsDynamicUI.forEach(el => el.destroy()); statsDynamicUI = []; }
             if (isShopOpen) { isShopOpen = false; shopUIElements.forEach(el => el.setVisible(false)); shopDynamicUI.forEach(el => el.destroy()); shopDynamicUI = []; }
             if (isMagicOpen) { isMagicOpen = false; magicUIElements.forEach(el => el.setVisible(false)); magicDynamicUI.forEach(el => el.destroy()); magicDynamicUI = []; }
+            if (isWizardShopOpen) { isWizardShopOpen = false; wizardShopUIElements.forEach(el => el.setVisible(false)); wizardShopDynamicUI.forEach(el => el.destroy()); wizardShopDynamicUI = []; }
+            hotkeyDynamicUI.forEach(el => { if (el && el.destroy) el.destroy(); });
+            hotkeyDynamicUI = [];
             if (itemTooltip) itemTooltip.setVisible(false);
             if (uiGraphics) uiGraphics.clear();
 
@@ -2733,7 +3234,7 @@
 
             if (mainScene && mainScene.cameras && mainScene.cameras.main) {
                 mainScene.cameras.main.stopFollow();
-                mainScene.cameras.main.setScroll(0, 0);
+                mainScene.cameras.main.setScroll(TOWN_CENTER_X - 400, TOWN_CENTER_Y - 300);
             }
         }
 
@@ -2746,7 +3247,7 @@
             destroyClassUI();
             if (mainScene && mainScene.cameras && mainScene.cameras.main) {
                 mainScene.cameras.main.stopFollow();
-                mainScene.cameras.main.setScroll(0, 0);
+                mainScene.cameras.main.setScroll(TOWN_CENTER_X - 400, TOWN_CENTER_Y - 300);
             }
 
             // 直接使用螢幕座標 + setScrollFactor(0)，避免 Phaser 3 Container 在鏡頭捲動後發生點擊座標偏移 Bug
@@ -2803,8 +3304,18 @@
         function startGame(selectedClass, saveData = null) {
             cleanupGameSession();
 
-            let startX = saveData ? saveData.x : 3000;
-            let startY = saveData ? saveData.y : 3000;
+            let startX = TOWN_CENTER_X;
+            let startY = TOWN_CENTER_Y;
+            if (saveData && typeof saveData.x === 'number' && typeof saveData.y === 'number') {
+                // 兼容舊版 6000x6000 存檔自動遷移至 18000x18000 (3x3) 地圖中心
+                if (!saveData.worldVersion && saveData.x <= 6000 && saveData.y <= 6000) {
+                    startX = saveData.x + 6000;
+                    startY = saveData.y + 6000;
+                } else {
+                    startX = Phaser.Math.Clamp(saveData.x, 120, WORLD_WIDTH - 120);
+                    startY = Phaser.Math.Clamp(saveData.y, 120, WORLD_HEIGHT - 120);
+                }
+            }
 
             player = mainScene.physics.add.sprite(startX, startY, selectedClass); 
             player.setScale(0.86);
@@ -2829,11 +3340,17 @@
                 player.inventory = JSON.parse(JSON.stringify(saveData.inventory));
                 player.equipment = JSON.parse(JSON.stringify(saveData.equipment));
                 player.gold = saveData.gold;
-                let savedSpells = Array.isArray(saveData.spells) ? saveData.spells.filter(id => !!MagicDict[id]) : [];
-                AllActiveSpellIds.forEach(id => {
-                    if (!savedSpells.includes(id)) savedSpells.push(id);
-                });
-                player.spells = savedSpells;
+                player.spells = Array.isArray(saveData.spells) ? saveData.spells.filter(id => !!MagicDict[id]) : [];
+                if (Array.isArray(saveData.magicHotkeys) && saveData.magicHotkeys.length === MAGIC_HOTKEY_COUNT) {
+                    player.magicHotkeys = saveData.magicHotkeys.map(id => (id && MagicDict[id] && player.spells.includes(id)) ? id : null);
+                } else {
+                    player.magicHotkeys = new Array(MAGIC_HOTKEY_COUNT).fill(null);
+                    for (let i = 0; i < Math.min(MAGIC_HOTKEY_COUNT, player.spells.length); i++) {
+                        player.magicHotkeys[i] = player.spells[i];
+                    }
+                }
+                currentHotkeyIndex = (typeof saveData.currentHotkeyIndex === 'number' && saveData.currentHotkeyIndex >= 0 && saveData.currentHotkeyIndex < MAGIC_HOTKEY_COUNT)
+                    ? saveData.currentHotkeyIndex : 0;
                 player.level = saveData.level; player.exp = saveData.exp; player.maxExp = saveData.maxExp; player.statPoints = saveData.statPoints;
                 player.str = saveData.str; player.dex = saveData.dex; player.con = saveData.con; player.int = saveData.int; player.wis = saveData.wis; player.cha = saveData.cha;
                 player.maxHp = saveData.maxHp;
@@ -2851,10 +3368,12 @@
                 player.inventory = new Array(20).fill(null); player.equipment = { weapon: null, helmet: null, armor: null, gloves: null, shoes: null };
                 player.gold = 15000; 
 
-                // 預設開放 1~8 級共 34 種魔法 (9、10 級於魔法書中預留階位設定)
-                player.spells = AllActiveSpellIds.slice();
+                // 初始尚未學習魔法，可於出生點廣場找【🧙 大魔法師 ‧ 吉倫】付費學習魔法，再將魔法拖曳至下方8格魔法熱鍵
+                player.spells = [];
+                player.magicHotkeys = new Array(MAGIC_HOTKEY_COUNT).fill(null);
+                currentHotkeyIndex = 0;
 
-                addItemToInventory('redwater', 20); addItemToInventory('bluewater', 10); addItemToInventory('grasswater', 5); addItemToInventory('armsreel', 5); addItemToInventory('armorreel', 10);
+                addItemToInventory('redwater', 20); addItemToInventory('bluewater', 10); addItemToInventory('grasswater', 5); addItemToInventory('teleportscroll', 5); addItemToInventory('armsreel', 5); addItemToInventory('armorreel', 10);
                 player.level = 1; player.exp = 0; player.maxExp = 100; player.statPoints = 0; 
                 
                 if (selectedClass === 'knight') { player.baseSpeed = 180; player.str = 16; player.dex = 12; player.con = 14; player.int = 8; player.wis = 9; player.cha = 12; player.equipment.weapon = { id: 'sword', enchant: 0 }; } else if (selectedClass === 'elf') { player.baseSpeed = 220; player.str = 11; player.dex = 12; player.con = 12; player.int = 12; player.wis = 12; player.cha = 9; player.equipment.weapon = { id: 'bow', enchant: 0 }; } else { player.baseSpeed = 160; player.str = 8; player.dex = 7; player.con = 12; player.int = 18; player.wis = 12; player.cha = 8; player.equipment.weapon = { id: 'wand', enchant: 0 }; }
@@ -2894,8 +3413,9 @@
                 saveGame(true);
             }
 
-            for(let i=0; i<60; i++) spawnMonster(); 
-            monsterSpawnTimer = mainScene.time.addEvent({ delay: 2500, callback: spawnMonster, callbackScope: mainScene, loop: true });
+            // 怪物數量增加 2.5 倍 (60 * 2.5 = 150 隻)
+            for (let i = 0; i < MAX_MONSTERS; i++) spawnMonster(); 
+            monsterSpawnTimer = mainScene.time.addEvent({ delay: 1000, callback: spawnMonster, callbackScope: mainScene, loop: true });
         }
 
         function createStatsUI(scene) { 
@@ -2931,13 +3451,39 @@
 
         function createShopUI(scene) {
             let bg = scene.add.graphics(); bg.fillStyle(0x111111, 0.95); bg.lineStyle(4, 0xaa8833); 
-            bg.fillRect(290, 80, 250, 430); bg.strokeRect(290, 80, 250, 430); 
-            bg.setScrollFactor(0).setDepth(10000).setVisible(false); bg.setInteractive(new Phaser.Geom.Rectangle(290, 80, 250, 430), Phaser.Geom.Rectangle.Contains); bg.on('pointerdown', (p, lx, ly, e) => { if (isShopOpen) e.stopPropagation(); });
-            let title = scene.add.text(415, 100, '- 商 店 -', { fontSize: '20px', fill: '#ffcc00', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(10000).setVisible(false);
-            let tip = scene.add.text(415, 470, '點擊背包物品可賣出', { fontSize: '14px', fill: '#aaaaaa' }).setOrigin(0.5).setScrollFactor(0).setDepth(10000).setVisible(false);
-            shopUIElements.push(bg, title, tip);
+            bg.fillRect(290, 80, 250, 424); bg.strokeRect(290, 80, 250, 424); 
+            bg.setScrollFactor(0).setDepth(10000).setVisible(false); bg.setInteractive(new Phaser.Geom.Rectangle(290, 80, 250, 424), Phaser.Geom.Rectangle.Contains); bg.on('pointerdown', (p, lx, ly, e) => { if (isShopOpen && e) e.stopPropagation(); });
+            let title = scene.add.text(415, 100, '- 武器藥水商店 -', { fontSize: '18px', fill: '#ffcc00', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(10000).setVisible(false);
+            let closeBtn = scene.add.text(522, 96, '✕', { fontSize: '16px', fill: '#ff6666', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(10002).setVisible(false).setInteractive({ useHandCursor: true });
+            closeBtn.on('pointerdown', (p, lx, ly, e) => { if (e) e.stopPropagation(); toggleShop(false); });
+            let tip = scene.add.text(415, 482, '點擊背包物品可賣出', { fontSize: '13px', fill: '#aaaaaa' }).setOrigin(0.5).setScrollFactor(0).setDepth(10000).setVisible(false);
+            shopUIElements.push(bg, title, closeBtn, tip);
         }
-        function toggleShop() { if (!isPlaying || !player || player.isDead) return; isShopOpen = !isShopOpen; shopUIElements.forEach(el => el.setVisible(isShopOpen)); if (isShopOpen) { if (!isInventoryOpen) toggleInventory(); shopCurrentPage = 0; updateShopUI(); } else { shopDynamicUI.forEach(el => el.destroy()); shopDynamicUI = []; } itemTooltip.setVisible(false); }
+        function toggleShop(forceState) {
+            if (!isPlaying || !player || player.isDead) return;
+            const nextState = (typeof forceState === 'boolean') ? forceState : !isShopOpen;
+            if (nextState) {
+                const shopX = shopBuildingEntity ? shopBuildingEntity.x : (TOWN_CENTER_X - 235);
+                const shopY = shopBuildingEntity ? shopBuildingEntity.y : (TOWN_CENTER_Y - 185);
+                if (Phaser.Math.Distance.Between(player.x, player.y, shopX, shopY) > 400) {
+                    showFloatingText('請回到出生地【武器藥水商店】購買物品', player, '#ffcc00');
+                    return;
+                }
+                if (isWizardShopOpen) toggleWizardShop(false);
+                if (isMagicOpen) toggleMagic(false);
+            }
+            isShopOpen = nextState;
+            shopUIElements.forEach(el => el.setVisible(isShopOpen));
+            if (isShopOpen) {
+                if (!isInventoryOpen) toggleInventory();
+                shopCurrentPage = 0;
+                updateShopUI();
+            } else {
+                shopDynamicUI.forEach(el => el.destroy());
+                shopDynamicUI = [];
+            }
+            itemTooltip.setVisible(false);
+        }
         function updateShopUI() {
             if (!isShopOpen) return; shopDynamicUI.forEach(el => el.destroy()); shopDynamicUI = [];
             let shopItemList = Object.keys(ItemDict); let itemsPerPage = 5; let totalPages = Math.ceil(shopItemList.length / itemsPerPage); if (totalPages === 0) totalPages = 1;
@@ -2957,6 +3503,197 @@
                 buyBtn.on('pointerdown', (p, lx, ly, e) => { e.stopPropagation(); if (player.gold >= itemData.price) { if (addItemToInventory(itemId, 1, 0)) { player.gold -= itemData.price; showFloatingText('-' + itemData.price + ' G', player, '#ff0000'); updateUI(); } else { showFloatingText('背包已滿', player, '#ff0000'); } } else { showFloatingText('天幣不足', player, '#ff0000'); } });
                 shopDynamicUI.push(icon, nameTxt, buyBtn);
             }
+        }
+
+        // ================= 大魔法師吉倫 NPC 魔法傳授視窗 =================
+        function createWizardShopUI(scene) {
+            let bg = scene.add.graphics();
+            bg.fillStyle(0x0c0a18, 0.96);
+            bg.lineStyle(4, 0xc89e46);
+            bg.fillRect(90, 66, 460, 436);
+            bg.strokeRect(90, 66, 460, 436);
+            bg.lineStyle(1.5, 0x7744aa, 0.85);
+            bg.strokeRect(96, 72, 448, 424);
+            bg.setScrollFactor(0).setDepth(10000).setVisible(false);
+            bg.setInteractive(new Phaser.Geom.Rectangle(90, 66, 460, 436), Phaser.Geom.Rectangle.Contains);
+            bg.on('pointerdown', (p, lx, ly, e) => { if (isWizardShopOpen && e) e.stopPropagation(); });
+
+            let title = scene.add.text(312, 86, '【 🧙 大魔法師吉倫 ‧ 魔法傳授所 】', {
+                fontSize: '18px', fill: '#ffe28a', fontStyle: 'bold', stroke: '#000000', strokeThickness: 4
+            }).setOrigin(0.5).setScrollFactor(0).setDepth(10000).setVisible(false);
+
+            let closeBtn = scene.add.text(530, 86, '✕', {
+                fontSize: '18px', fill: '#ff6666', fontStyle: 'bold'
+            }).setOrigin(0.5).setScrollFactor(0).setDepth(10002).setVisible(false).setInteractive({ useHandCursor: true });
+            closeBtn.on('pointerdown', (p, lx, ly, e) => { if (e) e.stopPropagation(); toggleWizardShop(false); });
+
+            let tip = scene.add.text(320, 486, '付費學會的魔法會自動放入下方空魔法熱鍵 ｜ 亦可打開【魔法】書拖曳至8格熱鍵', {
+                fontSize: '11px', fill: '#b8d4ff', align: 'center'
+            }).setOrigin(0.5).setScrollFactor(0).setDepth(10000).setVisible(false);
+
+            wizardShopUIElements.push(bg, title, closeBtn, tip);
+        }
+
+        function toggleWizardShop(forceState) {
+            if (!isPlaying || !player || player.isDead) return;
+            const nextState = (typeof forceState === 'boolean') ? forceState : !isWizardShopOpen;
+            if (nextState) {
+                const wizX = wizardNpcEntity ? wizardNpcEntity.x : (TOWN_CENTER_X + 215);
+                const wizY = wizardNpcEntity ? wizardNpcEntity.y : (TOWN_CENTER_Y - 95);
+                if (Phaser.Math.Distance.Between(player.x, player.y, wizX, wizY) > 400) {
+                    showFloatingText('請回到出生地找【大魔法師 ‧ 吉倫】學習魔法', player, '#d896ff');
+                    return;
+                }
+                if (isShopOpen) toggleShop(false);
+                if (isMagicOpen) toggleMagic(false);
+            }
+            isWizardShopOpen = nextState;
+            wizardShopUIElements.forEach(el => el.setVisible(isWizardShopOpen));
+            if (isWizardShopOpen) {
+                updateWizardShopUI();
+            } else {
+                wizardShopDynamicUI.forEach(el => el.destroy());
+                wizardShopDynamicUI = [];
+            }
+            itemTooltip.setVisible(false);
+        }
+
+        function updateWizardShopUI() {
+            if (!isWizardShopOpen) return;
+            wizardShopDynamicUI.forEach(el => el.destroy());
+            wizardShopDynamicUI = [];
+
+            for (let t = 1; t <= 10; t++) {
+                const col = (t - 1) % 5;
+                const row = Math.floor((t - 1) / 5);
+                const tx = 144 + col * 88;
+                const ty = 116 + row * 28;
+                const isSelected = (currentWizardTierTab === t);
+                const isReserved = MagicTierConfig[t] && MagicTierConfig[t].reserved;
+
+                const tabBg = mainScene.add.graphics().setScrollFactor(0).setDepth(10001);
+                tabBg.fillStyle(isSelected ? (isReserved ? 0x442266 : 0x4a206a) : 0x181626, 0.96);
+                tabBg.lineStyle(isSelected ? 2.2 : 1.2, isSelected ? 0xffe066 : (isReserved ? 0x8855aa : 0x664488));
+                tabBg.fillRoundedRect(tx - 40, ty - 11, 80, 22, 4);
+                tabBg.strokeRoundedRect(tx - 40, ty - 11, 80, 22, 4);
+
+                const tabLabel = isReserved ? `${t}級(預留)` : `${t}級魔法`;
+                const tabTxt = mainScene.add.text(tx, ty, tabLabel, {
+                    fontSize: '12px',
+                    fill: isSelected ? '#ffee77' : (isReserved ? '#cc99ff' : '#cccccc'),
+                    fontStyle: isSelected ? 'bold' : 'normal'
+                }).setOrigin(0.5).setScrollFactor(0).setDepth(10002).setInteractive({ useHandCursor: true });
+
+                tabTxt.on('pointerdown', (p, lx, ly, e) => {
+                    if (e) e.stopPropagation();
+                    currentWizardTierTab = t;
+                    itemTooltip.setVisible(false);
+                    updateWizardShopUI();
+                });
+
+                wizardShopDynamicUI.push(tabBg, tabTxt);
+            }
+
+            const tierInfo = MagicTierConfig[currentWizardTierTab];
+            if (tierInfo && tierInfo.reserved) {
+                const resBox = mainScene.add.graphics().setScrollFactor(0).setDepth(10001);
+                resBox.fillStyle(0x141020, 0.92);
+                resBox.lineStyle(2, 0x9966cc, 0.85);
+                resBox.fillRoundedRect(120, 185, 400, 240, 8);
+                resBox.strokeRoundedRect(120, 185, 400, 240, 8);
+
+                const resTitle = mainScene.add.text(320, 245, `✦ 【 ${tierInfo.name} ‧ 預留階位設定 】 ✦`, {
+                    fontSize: '20px', fill: '#e0b8ff', fontStyle: 'bold', stroke: '#000', strokeThickness: 4
+                }).setOrigin(0.5).setScrollFactor(0).setDepth(10002);
+
+                const resDesc = mainScene.add.text(320, 310, `${tierInfo.desc}\n\n需求等級設定預留：Lv.${tierInfo.reqLevel}\n目前開放 1 ~ 8 級共 34 種天堂經典魔法傳授`, {
+                    fontSize: '14px', fill: '#cccccc', align: 'center', lineSpacing: 8
+                }).setOrigin(0.5).setScrollFactor(0).setDepth(10002);
+
+                wizardShopDynamicUI.push(resBox, resTitle, resDesc);
+                return;
+            }
+
+            const tierSpellIds = AllActiveSpellIds.filter(id => MagicDict[id] && MagicDict[id].tier === currentWizardTierTab);
+            tierSpellIds.forEach((spellId, localIdx) => {
+                const spell = MagicDict[spellId];
+                const isLearned = player.spells.includes(spellId);
+                const learnPrice = getSpellLearnPrice(spellId);
+                const col = localIdx % 2;
+                const row = Math.floor(localIdx / 2);
+                const cardX = 108 + col * 216;
+                const cardY = 166 + row * 94;
+                const cardW = 206;
+                const cardH = 84;
+
+                const cardBg = mainScene.add.graphics().setScrollFactor(0).setDepth(10001);
+                cardBg.fillStyle(isLearned ? 0x162a26 : 0x191528, 0.95);
+                cardBg.lineStyle(isLearned ? 2.2 : 1.5, isLearned ? 0x44dd88 : 0x6a4c9c);
+                cardBg.fillRoundedRect(cardX, cardY, cardW, cardH, 6);
+                cardBg.strokeRoundedRect(cardX, cardY, cardW, cardH, 6);
+
+                const iconX = cardX + 26;
+                const iconY = cardY + 30;
+                const icon = mainScene.add.image(iconX, iconY, spell.icon).setScrollFactor(0).setDepth(10002).setInteractive({ useHandCursor: true });
+                icon.on('pointerover', (pointer) => { let p = getTooltipPos(pointer); itemTooltip.setText(getMagicTooltipText(spellId)); itemTooltip.setPosition(p.x, p.y); itemTooltip.setVisible(true); });
+                icon.on('pointerout', () => { itemTooltip.setVisible(false); });
+                icon.on('pointermove', (pointer) => { let p = getTooltipPos(pointer); itemTooltip.setPosition(p.x, p.y); });
+
+                const nameTxt = mainScene.add.text(cardX + 50, cardY + 9, spell.name, {
+                    fontSize: '13px', fill: isLearned ? '#77ffbb' : '#ffffff', fontStyle: 'bold'
+                }).setScrollFactor(0).setDepth(10002);
+
+                const mpPriceTxt = mainScene.add.text(cardX + 50, cardY + 29, `MP:${spell.mp} | 💰${learnPrice}G`, {
+                    fontSize: '11px', fill: '#ffd866', fontStyle: 'bold'
+                }).setScrollFactor(0).setDepth(10002);
+
+                const shortDesc = spell.desc.split('\n')[0].substring(0, 15);
+                const descTxt = mainScene.add.text(cardX + 10, cardY + 61, shortDesc, {
+                    fontSize: '11px', fill: '#bbbbbb'
+                }).setScrollFactor(0).setDepth(10002);
+
+                let actionBtn;
+                if (isLearned) {
+                    actionBtn = mainScene.add.text(cardX + 172, cardY + 22, '已學會', {
+                        fontSize: '11px', fill: '#112211', backgroundColor: '#55dd88', padding: { x: 5, y: 3 }, fontStyle: 'bold'
+                    }).setOrigin(0.5).setScrollFactor(0).setDepth(10002);
+                } else {
+                    const canAfford = player.gold >= learnPrice;
+                    actionBtn = mainScene.add.text(cardX + 172, cardY + 22, '學習', {
+                        fontSize: '12px',
+                        fill: canAfford ? '#ffffff' : '#999999',
+                        backgroundColor: canAfford ? '#7722aa' : '#333333',
+                        padding: { x: 8, y: 4 },
+                        fontStyle: 'bold'
+                    }).setOrigin(0.5).setScrollFactor(0).setDepth(10002).setInteractive({ useHandCursor: true });
+
+                    actionBtn.on('pointerdown', (pointer, lx, ly, e) => {
+                        if (e) e.stopPropagation();
+                        if (player.spells.includes(spellId)) return;
+                        if (player.gold < learnPrice) {
+                            showFloatingText(`天幣不足 (需 ${learnPrice} G)`, player, '#ff5555');
+                            return;
+                        }
+                        player.gold -= learnPrice;
+                        player.spells.push(spellId);
+                        // 學習後若下方8格魔法熱鍵有空位，自動放入第一個空熱鍵
+                        const emptyHkIdx = player.magicHotkeys.findIndex(h => h === null);
+                        if (emptyHkIdx !== -1) {
+                            player.magicHotkeys[emptyHkIdx] = spellId;
+                            currentHotkeyIndex = emptyHkIdx;
+                            showFloatingText(`學會【${spell.name}】並設至熱鍵 ${emptyHkIdx + 1}！`, player, '#00ffcc');
+                        } else {
+                            showFloatingText(`成功學會【${spell.name}】！`, player, '#00ffcc');
+                        }
+                        spawnGroundMagicCircleEffect(mainScene, player.x, player.y, 64, 0xd888ff, 0xffee77, 880);
+                        updateUI();
+                        updateWizardShopUI();
+                        saveGame(true);
+                    });
+                }
+
+                wizardShopDynamicUI.push(cardBg, icon, nameTxt, mpPriceTxt, descTxt, actionBtn);
+            });
         }
 
         const EquipSlotPos = { helmet: { x: 670, y: 130 }, weapon: { x: 625, y: 175 }, armor: { x: 670, y: 175 }, gloves: { x: 715, y: 175 }, shoes: { x: 670, y: 220 } };
@@ -3008,28 +3745,38 @@
             let bg = scene.add.graphics();
             bg.fillStyle(0x0b0e16, 0.96);
             bg.lineStyle(4, 0xd8b458);
-            bg.fillRect(90, 72, 460, 442);
-            bg.strokeRect(90, 72, 460, 442);
+            bg.fillRect(90, 66, 460, 436);
+            bg.strokeRect(90, 66, 460, 436);
             bg.lineStyle(1.5, 0x336699, 0.85);
-            bg.strokeRect(96, 78, 448, 430);
+            bg.strokeRect(96, 72, 448, 424);
             bg.setScrollFactor(0).setDepth(10000).setVisible(false);
-            bg.setInteractive(new Phaser.Geom.Rectangle(90, 72, 460, 442), Phaser.Geom.Rectangle.Contains);
+            bg.setInteractive(new Phaser.Geom.Rectangle(90, 66, 460, 436), Phaser.Geom.Rectangle.Contains);
             bg.on('pointerdown', (p, lx, ly, e) => { if (isMagicOpen && e) e.stopPropagation(); });
 
-            let title = scene.add.text(320, 95, '【 亞 丁 魔 法 書 (1 ~ 10 級) 】', {
-                fontSize: '19px', fill: '#ffe088', fontStyle: 'bold', stroke: '#000000', strokeThickness: 4
+            let title = scene.add.text(320, 86, '【 亞 丁 魔 法 書 (已習得魔法) 】', {
+                fontSize: '18px', fill: '#ffe088', fontStyle: 'bold', stroke: '#000000', strokeThickness: 4
             }).setOrigin(0.5).setScrollFactor(0).setDepth(10000).setVisible(false);
 
-            let tip = scene.add.text(320, 492, '點擊魔法可裝備至快捷鍵 (E / 施法鈕) ｜ 點擊右側【施放】可立即詠唱', {
-                fontSize: '12px', fill: '#aaccff', align: 'center'
+            let closeBtn = scene.add.text(530, 86, '✕', {
+                fontSize: '18px', fill: '#ff6666', fontStyle: 'bold'
+            }).setOrigin(0.5).setScrollFactor(0).setDepth(10002).setVisible(false).setInteractive({ useHandCursor: true });
+            closeBtn.on('pointerdown', (p, lx, ly, e) => { if (e) e.stopPropagation(); toggleMagic(false); });
+
+            let tip = scene.add.text(320, 486, '可將【魔法圖示】直接拖曳至畫面最下方8格魔法熱鍵 ｜ 或點擊【設熱鍵】放入目前熱鍵', {
+                fontSize: '11px', fill: '#aaccff', align: 'center'
             }).setOrigin(0.5).setScrollFactor(0).setDepth(10000).setVisible(false);
 
-            magicUIElements.push(bg, title, tip);
+            magicUIElements.push(bg, title, closeBtn, tip);
         }
 
-        function toggleMagic() { 
+        function toggleMagic(forceState) { 
             if (!isPlaying || !player || player.isDead) return; 
-            isMagicOpen = !isMagicOpen; 
+            const nextState = (typeof forceState === 'boolean') ? forceState : !isMagicOpen;
+            if (nextState) {
+                if (isWizardShopOpen) toggleWizardShop(false);
+                if (isShopOpen) toggleShop(false);
+            }
+            isMagicOpen = nextState; 
             magicUIElements.forEach(el => el.setVisible(isMagicOpen));
             if (isMagicOpen) { updateMagicUI(); } 
             else { magicDynamicUI.forEach(el => el.destroy()); magicDynamicUI = []; }
@@ -3046,15 +3793,15 @@
                 const col = (t - 1) % 5;
                 const row = Math.floor((t - 1) / 5);
                 const tx = 144 + col * 88;
-                const ty = 126 + row * 30;
+                const ty = 116 + row * 28;
                 const isSelected = (currentMagicTierTab === t);
                 const isReserved = MagicTierConfig[t] && MagicTierConfig[t].reserved;
 
                 const tabBg = mainScene.add.graphics().setScrollFactor(0).setDepth(10001);
                 tabBg.fillStyle(isSelected ? (isReserved ? 0x442266 : 0x1a4c7c) : 0x181c26, 0.96);
                 tabBg.lineStyle(isSelected ? 2.2 : 1.2, isSelected ? 0xffe066 : (isReserved ? 0x8855aa : 0x446688));
-                tabBg.fillRoundedRect(tx - 40, ty - 12, 80, 24, 4);
-                tabBg.strokeRoundedRect(tx - 40, ty - 12, 80, 24, 4);
+                tabBg.fillRoundedRect(tx - 40, ty - 11, 80, 22, 4);
+                tabBg.strokeRoundedRect(tx - 40, ty - 11, 80, 22, 4);
 
                 const tabLabel = isReserved ? `${t}級(預留)` : `${t}級魔法`;
                 const tabTxt = mainScene.add.text(tx, ty, tabLabel, {
@@ -3079,14 +3826,14 @@
                 const resBox = mainScene.add.graphics().setScrollFactor(0).setDepth(10001);
                 resBox.fillStyle(0x141020, 0.92);
                 resBox.lineStyle(2, 0x9966cc, 0.85);
-                resBox.fillRoundedRect(120, 195, 400, 240, 8);
-                resBox.strokeRoundedRect(120, 195, 400, 240, 8);
+                resBox.fillRoundedRect(120, 185, 400, 240, 8);
+                resBox.strokeRoundedRect(120, 185, 400, 240, 8);
 
-                const resTitle = mainScene.add.text(320, 255, `✦ 【 ${tierInfo.name} ‧ 預留階位設定 】 ✦`, {
+                const resTitle = mainScene.add.text(320, 245, `✦ 【 ${tierInfo.name} ‧ 預留階位設定 】 ✦`, {
                     fontSize: '20px', fill: '#e0b8ff', fontStyle: 'bold', stroke: '#000', strokeThickness: 4
                 }).setOrigin(0.5).setScrollFactor(0).setDepth(10002);
 
-                const resDesc = mainScene.add.text(320, 320, `${tierInfo.desc}\n\n需求等級設定預留：Lv.${tierInfo.reqLevel}\n目前開放 1 ~ 8 級共 34 種天堂經典魔法\n請切換上方 1級 ~ 8級 分頁裝備與施放魔法`, {
+                const resDesc = mainScene.add.text(320, 310, `${tierInfo.desc}\n\n需求等級設定預留：Lv.${tierInfo.reqLevel}\n目前開放 1 ~ 8 級共 34 種天堂經典魔法\n請至出生地找【大魔法師 ‧ 吉倫】付費學習`, {
                     fontSize: '14px', fill: '#cccccc', align: 'center', lineSpacing: 8
                 }).setOrigin(0.5).setScrollFactor(0).setDepth(10002);
 
@@ -3094,87 +3841,87 @@
                 return;
             }
 
-            // 篩選目前分頁階位 (1~8級) 的所有魔法
+            // 篩選目前分頁階位 (1~8級) 玩家已學會的魔法
             const tierSpellIds = player.spells.filter(id => MagicDict[id] && MagicDict[id].tier === currentMagicTierTab);
             if (tierSpellIds.length === 0) {
-                let emptyTxt = mainScene.add.text(320, 310, '此階位尚無魔法', { fontSize: '16px', fill: '#888888' }).setOrigin(0.5).setScrollFactor(0).setDepth(10001);
+                let emptyTxt = mainScene.add.text(320, 300, `尚未學會任何【${currentMagicTierTab}級魔法】\n\n請在出生地【說話之島村莊】廣場右側\n點擊【🧙 大魔法師 ‧ 吉倫】付費學習魔法`, {
+                    fontSize: '15px', fill: '#d8b4ff', align: 'center', lineSpacing: 8
+                }).setOrigin(0.5).setScrollFactor(0).setDepth(10001);
                 magicDynamicUI.push(emptyTxt);
                 return;
             }
 
-            const equippedSpellId = player.spells[currentSpellIndex];
+            const currentHotkeySpellId = (player.magicHotkeys && player.magicHotkeys[currentHotkeyIndex]) || null;
             tierSpellIds.forEach((spellId, localIdx) => {
                 const spell = MagicDict[spellId];
-                const globalIndex = player.spells.indexOf(spellId);
                 const col = localIdx % 2;
                 const row = Math.floor(localIdx / 2);
                 const cardX = 108 + col * 216;
-                const cardY = 180 + row * 96;
+                const cardY = 166 + row * 94;
                 const cardW = 206;
-                const cardH = 86;
-                const isEquipped = (equippedSpellId === spellId);
+                const cardH = 84;
+                const hotkeySlotIdx = player.magicHotkeys ? player.magicHotkeys.indexOf(spellId) : -1;
+                const isEquipped = (currentHotkeySpellId === spellId);
 
                 const cardBg = mainScene.add.graphics().setScrollFactor(0).setDepth(10001);
                 cardBg.fillStyle(isEquipped ? 0x1d2e44 : 0x151922, 0.95);
-                cardBg.lineStyle(isEquipped ? 2.5 : 1.5, isEquipped ? 0xffee55 : 0x3b485e);
+                cardBg.lineStyle(isEquipped ? 2.5 : 1.5, isEquipped ? 0xffee55 : (hotkeySlotIdx !== -1 ? 0x44aaff : 0x3b485e));
                 cardBg.fillRoundedRect(cardX, cardY, cardW, cardH, 6);
                 cardBg.strokeRoundedRect(cardX, cardY, cardW, cardH, 6);
 
-                const iconX = cardX + 28;
-                const iconY = cardY + 32;
-                const icon = mainScene.add.image(iconX, iconY, spell.icon).setScrollFactor(0).setDepth(10002).setInteractive({ useHandCursor: true });
+                const iconX = cardX + 26;
+                const iconY = cardY + 30;
+                const icon = mainScene.add.image(iconX, iconY, spell.icon)
+                    .setScrollFactor(0).setDepth(10002).setInteractive({ draggable: true, useHandCursor: true });
+                icon.isSpellDragItem = true;
+                icon.spellId = spellId;
 
-                const nameTxt = mainScene.add.text(cardX + 54, cardY + 11, spell.name, {
-                    fontSize: '14px', fill: isEquipped ? '#ffee66' : '#ffffff', fontStyle: 'bold'
+                const nameTxt = mainScene.add.text(cardX + 52, cardY + 9, spell.name, {
+                    fontSize: '13px', fill: isEquipped ? '#ffee66' : '#ffffff', fontStyle: 'bold'
                 }).setScrollFactor(0).setDepth(10002);
 
-                const mpTxt = mainScene.add.text(cardX + 54, cardY + 30, `MP: ${spell.mp}`, {
-                    fontSize: '12px', fill: '#66ccff', fontStyle: 'bold'
+                const hkBadgeStr = hotkeySlotIdx !== -1 ? ` [熱鍵${hotkeySlotIdx + 1}]` : '';
+                const mpTxt = mainScene.add.text(cardX + 52, cardY + 28, `MP: ${spell.mp}${hkBadgeStr}`, {
+                    fontSize: '11px', fill: hotkeySlotIdx !== -1 ? '#66ffcc' : '#66ccff', fontStyle: 'bold'
                 }).setScrollFactor(0).setDepth(10002);
 
                 const shortDesc = spell.desc.split('\n')[0].substring(0, 15);
-                const descTxt = mainScene.add.text(cardX + 10, cardY + 62, shortDesc, {
+                const descTxt = mainScene.add.text(cardX + 10, cardY + 61, shortDesc, {
                     fontSize: '11px', fill: '#bbbbbb'
                 }).setScrollFactor(0).setDepth(10002);
 
-                // 裝備按鈕區
-                const eqBtn = mainScene.add.text(cardX + 132, cardY + 30, isEquipped ? '已裝備' : '裝備', {
-                    fontSize: '11px',
+                // 設至目前選取熱鍵按鈕
+                const eqBtn = mainScene.add.text(cardX + 134, cardY + 28, `設熱鍵${currentHotkeyIndex + 1}`, {
+                    fontSize: '10px',
                     fill: isEquipped ? '#111111' : '#ffee88',
                     backgroundColor: isEquipped ? '#ffee55' : '#334455',
-                    padding: { x: 5, y: 3 }
+                    padding: { x: 4, y: 3 }
                 }).setOrigin(0.5).setScrollFactor(0).setDepth(10002).setInteractive({ useHandCursor: true });
 
                 // 立即施放按鈕區
-                const castBtn = mainScene.add.text(cardX + 178, cardY + 30, '施放', {
+                const castBtn = mainScene.add.text(cardX + 180, cardY + 28, '施放', {
                     fontSize: '11px',
                     fill: '#ffffff',
                     backgroundColor: '#1166aa',
-                    padding: { x: 6, y: 3 }
+                    padding: { x: 5, y: 3 }
                 }).setOrigin(0.5).setScrollFactor(0).setDepth(10002).setInteractive({ useHandCursor: true });
 
-                const equipAction = (pointer, lx, ly, e) => {
+                const assignToCurrentHotkey = (pointer, lx, ly, e) => {
                     if (e) e.stopPropagation();
-                    if (globalIndex !== -1) {
-                        currentSpellIndex = globalIndex;
-                        showFloatingText('已裝備 ' + spell.name, player, '#00ffff');
-                        if (magicTextVisual) { magicTextVisual.setText(spell.name.substring(0, 4)); }
-                        updateMagicUI();
-                    }
+                    player.magicHotkeys[currentHotkeyIndex] = spellId;
+                    showFloatingText(`熱鍵 ${currentHotkeyIndex + 1} 設定【${spell.name}】`, player, '#00ffff');
+                    updateMagicHotkeyBarUI();
+                    updateMagicUI();
+                    saveGame(true);
                 };
 
                 icon.on('pointerover', (pointer) => { let p = getTooltipPos(pointer); itemTooltip.setText(getMagicTooltipText(spellId)); itemTooltip.setPosition(p.x, p.y); itemTooltip.setVisible(true); });
                 icon.on('pointerout', () => { itemTooltip.setVisible(false); });
                 icon.on('pointermove', (pointer) => { let p = getTooltipPos(pointer); itemTooltip.setPosition(p.x, p.y); });
-                icon.on('pointerdown', equipAction);
-                eqBtn.on('pointerdown', equipAction);
+                eqBtn.on('pointerdown', assignToCurrentHotkey);
 
                 castBtn.on('pointerdown', (pointer, lx, ly, e) => {
                     if (e) e.stopPropagation();
-                    if (globalIndex !== -1) {
-                        currentSpellIndex = globalIndex;
-                        if (magicTextVisual) { magicTextVisual.setText(spell.name.substring(0, 4)); }
-                    }
                     performMagicAttack(spellId);
                     updateMagicUI();
                 });
@@ -3331,8 +4078,8 @@
             else if (itemData.type === 'scroll_weapon') { pendingEnchantScrollIndex = index; pendingEnchantType = 'weapon'; showFloatingText('請選擇要強化的武器', player, '#ff00ff'); return; }
             else if (itemData.type === 'scroll_armor') { pendingEnchantScrollIndex = index; pendingEnchantType = 'armor'; showFloatingText('請選擇要強化的防具', player, '#ff00ff'); return; }
             else if (itemData.type === 'scroll_misc') {
-                stopAttacking(); targetPoint = null; targetEntity = null;
-                player.body.reset(3000, 3000);
+                stopAttacking(); targetPoint = null; targetEntity = null; pendingNpcAction = null;
+                player.body.reset(TOWN_CENTER_X, TOWN_CENTER_Y);
                 showFloatingText('傳送回說話之島村莊', player, '#88ffff');
                 player.setTint(0x88ffff);
                 setTimeout(() => { if (player && !player.isDead) player.clearTint(); }, 400);
@@ -3350,10 +4097,8 @@
             }
             if (isInventoryOpen) updateInventoryUI(); 
             if (isStatsOpen) updateStatsUI(); 
-            if (magicTextVisual && player.spells.length > 0) {
-                let spellId = player.spells[currentSpellIndex];
-                if(spellId && MagicDict[spellId]) { magicTextVisual.setText(MagicDict[spellId].name.substring(0,4)); }
-            }
+            if (isWizardShopOpen) updateWizardShopUI();
+            updateMagicHotkeyBarUI();
         }
 
         // 解除冥想術或隱身術狀態輔助函式
@@ -3405,18 +4150,46 @@
         }
 
         function update(time, delta) {
-            uiGraphics.clear(); if (!isPlaying || !player) return; 
+            if (uiGraphics) uiGraphics.clear();
+            if (!isPlaying || !player) return; 
             if (!player.isDead) {
                 player.setDepth(player.y);
                 drawHpBar(player, 0x00aaff);
                 if (regionTextUI) {
                     regionTextUI.setText(`📍 【${getLineageRegionName(player.x, player.y)}】 (${Math.round(player.x)}, ${Math.round(player.y)})`);
                 }
+                // 檢查玩家點擊商店或大魔法師 NPC 後自動走近開啟視窗
+                if (pendingNpcAction === 'shop' && shopBuildingEntity) {
+                    if (Phaser.Math.Distance.Between(player.x, player.y, shopBuildingEntity.x, shopBuildingEntity.y) <= 270) {
+                        pendingNpcAction = null;
+                        targetPoint = null;
+                        if (player.body) player.body.setVelocity(0);
+                        player.anims.stop();
+                        if (player.texture && player.texture.frameTotal > 1) player.setFrame(0);
+                        toggleShop(true);
+                    }
+                } else if (pendingNpcAction === 'wizard' && wizardNpcEntity) {
+                    if (Phaser.Math.Distance.Between(player.x, player.y, wizardNpcEntity.x, wizardNpcEntity.y) <= 240) {
+                        pendingNpcAction = null;
+                        targetPoint = null;
+                        if (player.body) player.body.setVelocity(0);
+                        player.anims.stop();
+                        if (player.texture && player.texture.frameTotal > 1) player.setFrame(0);
+                        toggleWizardShop(true);
+                    }
+                }
+                // 若玩家遠離出生點商店或大魔法師 NPC，自動關閉商店或魔法傳授視窗
+                if (isShopOpen && shopBuildingEntity && Phaser.Math.Distance.Between(player.x, player.y, shopBuildingEntity.x, shopBuildingEntity.y) > 420) {
+                    toggleShop(false);
+                }
+                if (isWizardShopOpen && wizardNpcEntity && Phaser.Math.Distance.Between(player.x, player.y, wizardNpcEntity.x, wizardNpcEntity.y) > 420) {
+                    toggleWizardShop(false);
+                }
             }
             
             if (joystickActive && !player.isDead && !isAttacking) {
                 cancelMeditationIfMoving();
-                targetPoint = null; targetEntity = null; 
+                targetPoint = null; targetEntity = null; pendingNpcAction = null;
                 mainScene.physics.velocityFromRotation(joystickAngle, player.speed, player.body.velocity);
                 safePlayAnim(player, player.playerClass + '-walk');
                 player.setFlipX(Math.cos(joystickAngle) < 0);
@@ -3587,7 +4360,7 @@
         }
 
         function spawnMonster(specificId = null, forcedX = null, forcedY = null) {
-            if (!isPlaying || !player) return; if (!specificId && monsters.length >= 60) return; 
+            if (!isPlaying || !player) return; if (!specificId && monsters.length >= MAX_MONSTERS) return; 
             try {
                 if (typeof MonsterDictionary === 'undefined') return;
                 let mData = null;
@@ -3595,17 +4368,29 @@
                 else { const normalMonsterIds = Object.keys(MonsterDictionary).filter(key => !MonsterDictionary[key].isBoss); let randomId = Phaser.Math.RND.pick(normalMonsterIds); mData = MonsterDictionary[randomId]; }
                 if (!mData) return;
 
-                let randomX = forcedX || Phaser.Math.Between(100, WORLD_WIDTH - 100); 
-                let randomY = forcedY || Phaser.Math.Between(100, WORLD_HEIGHT - 100);
+                let randomX = forcedX;
+                let randomY = forcedY;
                 if (!forcedX) {
-                    // 避免一般怪物直接生在中央說話之島村莊廣場內
-                    if (Math.abs(randomX - 3000) < 450 && Math.abs(randomY - 3000) < 450) {
-                        randomX = (randomX < 3000) ? Phaser.Math.Between(200, 2480) : Phaser.Math.Between(3520, WORLD_WIDTH - 200);
+                    // 9倍大世界 (18000x18000)：約 45% 怪物生在玩家周圍狩獵圈 (520~3600px)，55% 分佈於全大陸各獵場
+                    if (Math.random() < 0.45) {
+                        const ang = Math.random() * Math.PI * 2;
+                        const dist = Phaser.Math.Between(520, 3600);
+                        randomX = Phaser.Math.Clamp(Math.round(player.x + Math.cos(ang) * dist), 150, WORLD_WIDTH - 150);
+                        randomY = Phaser.Math.Clamp(Math.round(player.y + Math.sin(ang) * dist), 150, WORLD_HEIGHT - 150);
+                    } else {
+                        randomX = Phaser.Math.Between(150, WORLD_WIDTH - 150);
+                        randomY = Phaser.Math.Between(150, WORLD_HEIGHT - 150);
                     }
-                    if (Phaser.Math.Distance.Between(randomX, randomY, player.x, player.y) < 400) {
-                        randomX += 600; randomY += 600;
-                        if (randomX > WORLD_WIDTH - 100) randomX -= 1200;
-                        if (randomY > WORLD_HEIGHT - 100) randomY -= 1200;
+                    // 避免一般怪物直接生在中央說話之島村莊安全廣場內 (9000, 9000)
+                    if (Math.abs(randomX - TOWN_CENTER_X) < 520 && Math.abs(randomY - TOWN_CENTER_Y) < 520) {
+                        const pushAng = Math.atan2(randomY - TOWN_CENTER_Y, randomX - TOWN_CENTER_X);
+                        randomX = Math.round(TOWN_CENTER_X + Math.cos(pushAng) * Phaser.Math.Between(650, 2200));
+                        randomY = Math.round(TOWN_CENTER_Y + Math.sin(pushAng) * Phaser.Math.Between(650, 2200));
+                    }
+                    if (Phaser.Math.Distance.Between(randomX, randomY, player.x, player.y) < 380) {
+                        randomX += 560; randomY += 560;
+                        if (randomX > WORLD_WIDTH - 150) randomX -= 1120;
+                        if (randomY > WORLD_HEIGHT - 150) randomY -= 1120;
                     }
                 }
                 
@@ -3714,9 +4499,16 @@
 
         function performMagicAttack(overrideSpellId = null) {
             if (!isPlaying || !player || player.isDead) return;
-            if (player.spells.length === 0) { showFloatingText('尚未學會任何魔法', player, '#aaaaaa'); return; }
+            if (player.spells.length === 0) {
+                showFloatingText('尚未學會魔法，請在出生點找【大魔法師吉倫】付費學習', player, '#d896ff');
+                return;
+            }
 
-            let spellId = overrideSpellId || player.spells[currentSpellIndex];
+            let spellId = overrideSpellId || (player.magicHotkeys && player.magicHotkeys[currentHotkeyIndex]);
+            if (!spellId) {
+                showFloatingText(`魔法熱鍵 ${currentHotkeyIndex + 1} 尚無魔法，請從【魔法】書拖曳至熱鍵`, player, '#00ffff');
+                return;
+            }
             let spell = MagicDict[spellId];
             if (!spell) return;
 
@@ -4266,7 +5058,138 @@
 
         function quickUseItem(type) { if(!isPlaying || !player || player.isDead) return; let index = player.inventory.findIndex(slot => slot && slot.id === type); if (index !== -1) useItemAtIndex(index); }
         function showFloatingText(text, target, textColor) { let floatText = mainScene.add.text(target.x, target.y - 15, text, { fontSize: '22px', fill: textColor, fontStyle: 'bold', stroke: '#000000', strokeThickness: 3 }).setOrigin(0.5).setDepth(9999); mainScene.tweens.add({ targets: floatText, y: target.y - 50, alpha: 0, duration: 800, ease: 'Power1', onComplete: function () { floatText.destroy(); } }); }
-        
+
+        // ================= 畫面正下方 8 格魔法熱鍵列 (支援拖曳配置、點擊選取與【切換】鈕循環切換) =================
+        function getMagicHotkeySlotPos(slotIdx) {
+            const startX = 205;
+            const spacing = 38;
+            const y = 558;
+            return { x: startX + slotIdx * spacing, y: y, size: 35 };
+        }
+
+        function getMagicHotkeySlotAtScreenPos(x, y) {
+            for (let i = 0; i < MAGIC_HOTKEY_COUNT; i++) {
+                const pos = getMagicHotkeySlotPos(i);
+                const half = pos.size / 2 + 3;
+                if (x >= pos.x - half && x <= pos.x + half && y >= pos.y - half && y <= pos.y + half) {
+                    return i;
+                }
+            }
+            return -1;
+        }
+
+        function selectMagicHotkeySlot(slotIdx, showToast = true) {
+            if (!player || slotIdx < 0 || slotIdx >= MAGIC_HOTKEY_COUNT) return;
+            currentHotkeyIndex = slotIdx;
+            const spId = player.magicHotkeys ? player.magicHotkeys[currentHotkeyIndex] : null;
+            if (showToast) {
+                if (spId && MagicDict[spId]) {
+                    showFloatingText(`切換熱鍵 ${slotIdx + 1}：【${MagicDict[spId].name}】`, player, '#00ffff');
+                } else {
+                    showFloatingText(`切換至魔法熱鍵 ${slotIdx + 1} (空)`, player, '#aaaaaa');
+                }
+            }
+            updateMagicHotkeyBarUI();
+            if (isMagicOpen) updateMagicUI();
+        }
+
+        function cycleNextMagicHotkey() {
+            if (!player || !player.magicHotkeys) return;
+            // 若熱鍵列已有配置的魔法，優先在有配置魔法的熱鍵格之間循環切換；若全空則依序 1~8 切換
+            const filledIndices = [];
+            for (let i = 0; i < MAGIC_HOTKEY_COUNT; i++) {
+                if (player.magicHotkeys[i] && MagicDict[player.magicHotkeys[i]]) {
+                    filledIndices.push(i);
+                }
+            }
+            if (filledIndices.length > 0) {
+                let nextSlot = filledIndices[0];
+                for (let k = 0; k < filledIndices.length; k++) {
+                    if (filledIndices[k] > currentHotkeyIndex) {
+                        nextSlot = filledIndices[k];
+                        break;
+                    }
+                }
+                selectMagicHotkeySlot(nextSlot, true);
+            } else {
+                const nextIdx = (currentHotkeyIndex + 1) % MAGIC_HOTKEY_COUNT;
+                selectMagicHotkeySlot(nextIdx, true);
+            }
+        }
+
+        function updateMagicHotkeyBarUI() {
+            if (!mainScene || !isPlaying || !player) return;
+            hotkeyDynamicUI.forEach(el => { if (el && el.destroy) el.destroy(); });
+            hotkeyDynamicUI = [];
+
+            if (!Array.isArray(player.magicHotkeys) || player.magicHotkeys.length !== MAGIC_HOTKEY_COUNT) {
+                player.magicHotkeys = new Array(MAGIC_HOTKEY_COUNT).fill(null);
+            }
+
+            for (let i = 0; i < MAGIC_HOTKEY_COUNT; i++) {
+                const pos = getMagicHotkeySlotPos(i);
+                const isSelected = (currentHotkeyIndex === i);
+                const spellId = player.magicHotkeys[i];
+                const spell = (spellId && MagicDict[spellId]) ? MagicDict[spellId] : null;
+
+                const slotBg = mainScene.add.graphics().setScrollFactor(0).setDepth(20001);
+                slotBg.fillStyle(isSelected ? 0x1e385c : 0x141822, 0.92);
+                slotBg.lineStyle(isSelected ? 2.5 : 1.5, isSelected ? 0xffee44 : 0x556677, 0.96);
+                slotBg.fillRoundedRect(pos.x - 17, pos.y - 17, 34, 34, 4);
+                slotBg.strokeRoundedRect(pos.x - 17, pos.y - 17, 34, 34, 4);
+                hotkeyDynamicUI.push(slotBg);
+
+                const hitZone = mainScene.add.rectangle(pos.x, pos.y, 34, 34, 0x000000, 0.01)
+                    .setScrollFactor(0).setDepth(20002).setInteractive({ useHandCursor: true });
+                hitZone.on('pointerdown', (pointer, lx, ly, event) => {
+                    if (event) event.stopPropagation();
+                    selectMagicHotkeySlot(i, true);
+                });
+                hotkeyDynamicUI.push(hitZone);
+
+                if (spell && mainScene.textures.exists(spell.icon)) {
+                    const spIcon = mainScene.add.image(pos.x, pos.y, spell.icon)
+                        .setScale(0.76).setScrollFactor(0).setDepth(20003).setInteractive({ draggable: true, useHandCursor: true });
+                    spIcon.isSpellDragItem = true;
+                    spIcon.spellId = spellId;
+                    spIcon.hotkeySlotIdx = i;
+                    spIcon.on('pointerdown', (pointer, lx, ly, event) => {
+                        if (event) event.stopPropagation();
+                        selectMagicHotkeySlot(i, true);
+                    });
+                    spIcon.on('pointerover', (pointer) => {
+                        let p = getTooltipPos(pointer);
+                        itemTooltip.setText(getMagicTooltipText(spellId));
+                        itemTooltip.setPosition(p.x, p.y);
+                        itemTooltip.setVisible(true);
+                    });
+                    spIcon.on('pointerout', () => { itemTooltip.setVisible(false); });
+                    hotkeyDynamicUI.push(spIcon);
+                }
+
+                const numTxt = mainScene.add.text(pos.x - 15, pos.y - 16, `${i + 1}`, {
+                    fontSize: '10px',
+                    fill: isSelected ? '#ffee55' : '#aaaaaa',
+                    fontStyle: 'bold',
+                    stroke: '#000000',
+                    strokeThickness: 2
+                }).setScrollFactor(0).setDepth(20004);
+                hotkeyDynamicUI.push(numTxt);
+            }
+
+            // 同步更新施法鍵上方與施法鍵提示
+            const activeSpellId = player.magicHotkeys[currentHotkeyIndex];
+            if (magicAtkSpellLabel) {
+                if (activeSpellId && MagicDict[activeSpellId]) {
+                    magicAtkSpellLabel.setText(MagicDict[activeSpellId].name.substring(0, 4));
+                } else {
+                    magicAtkSpellLabel.setText(`熱鍵${currentHotkeyIndex + 1}`);
+                }
+            }
+        }
+
+        let magicAtkSpellLabel = null;
+
         function createMobileUI() {
             let atkBtn = mainScene.add.circle(730, 530, 45, 0xff8800, 0.8).setScrollFactor(0).setDepth(20000).setInteractive();
             let atkText = mainScene.add.text(730, 530, '攻擊', { fontSize: '24px', fill: '#FFF', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(20000);
@@ -4278,11 +5201,23 @@
             let swapText = mainScene.add.text(640, 480, '切換', { fontSize: '12px', fill: '#FFF', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(20000);
             
             let magicAtkBtn = mainScene.add.circle(550, 540, 35, 0x0066ff, 0.7).setScrollFactor(0).setDepth(20000).setInteractive();
-            let magicAtkTextLabel = mainScene.add.text(550, 540, '施法', { fontSize: '18px', fill: '#FFF', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(20000);
+            let magicAtkTextLabel = mainScene.add.text(550, 532, '施法', { fontSize: '17px', fill: '#FFF', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(20000);
+            magicAtkSpellLabel = mainScene.add.text(550, 553, '熱鍵1', { fontSize: '10px', fill: '#ffee77', fontStyle: 'bold', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5).setScrollFactor(0).setDepth(20000);
             
-            let swapMagicBtn = mainScene.add.circle(550, 480, 20, 0x5555aa, 0.8).setScrollFactor(0).setDepth(20000).setInteractive();
-            magicTextVisual = mainScene.add.text(550, 480, '魔法', { fontSize: '12px', fill: '#FFF', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(20000);
+            // 施法鍵上方的「切換」鈕：直接在下方 8 格魔法熱鍵之間切換要使用的魔法
+            let swapMagicBtn = mainScene.add.circle(550, 480, 20, 0x5555aa, 0.85).setScrollFactor(0).setDepth(20000).setInteractive();
+            magicTextVisual = mainScene.add.text(550, 480, '切換', { fontSize: '12px', fill: '#FFF', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(20000);
             magicBtnVisual = magicAtkBtn;
+
+            // 畫面中間最下方：8 格魔法熱鍵底座與標題
+            let hotkeyBarBg = mainScene.add.graphics().setScrollFactor(0).setDepth(20000);
+            hotkeyBarBg.fillStyle(0x0a0d14, 0.86);
+            hotkeyBarBg.lineStyle(2, 0xc8a448, 0.9);
+            hotkeyBarBg.fillRoundedRect(181, 535, 314, 46, 6);
+            hotkeyBarBg.strokeRoundedRect(181, 535, 314, 46, 6);
+            let hotkeyBarTitle = mainScene.add.text(338, 523, '魔 法 熱 鍵 (可從魔法書拖曳至此)', {
+                fontSize: '11px', fill: '#ffe088', fontStyle: 'bold', stroke: '#000000', strokeThickness: 3
+            }).setOrigin(0.5).setScrollFactor(0).setDepth(20000);
 
             atkBtn.on('pointerdown', function(pointer, localX, localY, event) {
                 event.stopPropagation(); atkBtn.setAlpha(1);
@@ -4345,16 +5280,11 @@
 
             swapMagicBtn.on('pointerdown', function(pointer, localX, localY, event) { 
                 event.stopPropagation(); swapMagicBtn.setAlpha(1); 
-                if(player.spells.length > 0) {
-                    currentSpellIndex = (currentSpellIndex + 1) % player.spells.length;
-                    let spellId = player.spells[currentSpellIndex];
-                    magicTextVisual.setText(MagicDict[spellId].name.substring(0,4));
-                    showFloatingText('切換至 ' + MagicDict[spellId].name, player, '#00ffff');
-                }
+                cycleNextMagicHotkey();
             });
-            swapMagicBtn.on('pointerup', () => swapMagicBtn.setAlpha(0.8)); swapMagicBtn.on('pointerout', () => swapMagicBtn.setAlpha(0.8));
+            swapMagicBtn.on('pointerup', () => swapMagicBtn.setAlpha(0.85)); swapMagicBtn.on('pointerout', () => swapMagicBtn.setAlpha(0.85));
 
-            // 上方選單列
+            // 上方選單列 (已移除「商店」熱鍵，僅保留 紀錄、魔法、屬性、背包；購買物品需回出生地的武器藥水商店)
             let invBtn = mainScene.add.rectangle(730, 40, 60, 40, 0x444444, 0.8).setScrollFactor(0).setDepth(20000).setInteractive();
             let invText = mainScene.add.text(730, 40, '背包', { fontSize: '16px', fill: '#FFF', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(20000);
             invBtn.on('pointerdown', function(pointer, localX, localY, event) { event.stopPropagation(); toggleInventory(); });
@@ -4363,33 +5293,30 @@
             let statsText = mainScene.add.text(660, 40, '屬性', { fontSize: '16px', fill: '#FFF', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(20000);
             statsBtn.on('pointerdown', function(pointer, localX, localY, event) { event.stopPropagation(); toggleStats(); });
 
-            let shopBtn = mainScene.add.rectangle(590, 40, 60, 40, 0x444444, 0.8).setScrollFactor(0).setDepth(20000).setInteractive();
-            let shopText = mainScene.add.text(590, 40, '商店', { fontSize: '16px', fill: '#ffcc00', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(20000);
-            shopBtn.on('pointerdown', function(pointer, localX, localY, event) { event.stopPropagation(); toggleShop(); });
-
-            let magicMenuBtn = mainScene.add.rectangle(520, 40, 60, 40, 0x444444, 0.8).setScrollFactor(0).setDepth(20000).setInteractive();
-            let magicMenuText = mainScene.add.text(520, 40, '魔法', { fontSize: '16px', fill: '#00ccff', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(20000);
+            let magicMenuBtn = mainScene.add.rectangle(590, 40, 60, 40, 0x444444, 0.8).setScrollFactor(0).setDepth(20000).setInteractive();
+            let magicMenuText = mainScene.add.text(590, 40, '魔法', { fontSize: '16px', fill: '#00ccff', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(20000);
             magicMenuBtn.on('pointerdown', function(pointer, localX, localY, event) { event.stopPropagation(); toggleMagic(); });
             
-            let saveBtn = mainScene.add.rectangle(450, 40, 60, 40, 0x444444, 0.8).setScrollFactor(0).setDepth(20000).setInteractive();
-            let saveText = mainScene.add.text(450, 40, '紀錄', { fontSize: '16px', fill: '#00ff00', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(20000);
+            let saveBtn = mainScene.add.rectangle(520, 40, 60, 40, 0x444444, 0.8).setScrollFactor(0).setDepth(20000).setInteractive();
+            let saveText = mainScene.add.text(520, 40, '紀錄', { fontSize: '16px', fill: '#00ff00', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(20000);
             saveBtn.on('pointerdown', function(pointer, localX, localY, event) { event.stopPropagation(); saveGame(); });
 
-            let joyBase = mainScene.add.circle(120, 480, 60, 0x444444, 0.5).setScrollFactor(0).setDepth(20000); 
-            let joyThumb = mainScene.add.circle(120, 480, 30, 0xaaaaaa, 0.8).setScrollFactor(0).setDepth(20001).setInteractive({ draggable: true });
+            let joyBase = mainScene.add.circle(105, 495, 58, 0x444444, 0.5).setScrollFactor(0).setDepth(20000); 
+            let joyThumb = mainScene.add.circle(105, 495, 28, 0xaaaaaa, 0.8).setScrollFactor(0).setDepth(20001).setInteractive({ draggable: true });
             
             joyThumb.on('dragstart', function () { 
                 joystickActive = true; 
                 targetPoint = null; 
                 targetEntity = null; 
+                pendingNpcAction = null;
                 isAttacking = false; 
             }); 
             joyThumb.on('drag', function (pointer, dragX, dragY) { 
-                let dist = Phaser.Math.Distance.Between(120, 480, dragX, dragY); 
-                joystickAngle = Phaser.Math.Angle.Between(120, 480, dragX, dragY); 
-                if (dist > 60) { 
-                    joyThumb.x = 120 + Math.cos(joystickAngle) * 60; 
-                    joyThumb.y = 480 + Math.sin(joystickAngle) * 60; 
+                let dist = Phaser.Math.Distance.Between(105, 495, dragX, dragY); 
+                joystickAngle = Phaser.Math.Angle.Between(105, 495, dragX, dragY); 
+                if (dist > 58) { 
+                    joyThumb.x = 105 + Math.cos(joystickAngle) * 58; 
+                    joyThumb.y = 495 + Math.sin(joystickAngle) * 58; 
                 } else { 
                     joyThumb.x = dragX; 
                     joyThumb.y = dragY; 
@@ -4397,8 +5324,8 @@
             });
             joyThumb.on('dragend', function () { 
                 joystickActive = false; 
-                joyThumb.x = 120; 
-                joyThumb.y = 480; 
+                joyThumb.x = 105; 
+                joyThumb.y = 495; 
                 if(player && player.active && !player.isDead && !isAttacking && player.body) { 
                     player.body.setVelocity(0); 
                     player.anims.stop(); 
@@ -4408,27 +5335,40 @@
 
             mobileUIElements.push(
                 atkBtn, atkText, potionBtn, potionText, swapBtn, swapText,
-                magicAtkBtn, magicAtkTextLabel, swapMagicBtn, magicTextVisual,
-                invBtn, invText, statsBtn, statsText, shopBtn, shopText,
+                magicAtkBtn, magicAtkTextLabel, magicAtkSpellLabel, swapMagicBtn, magicTextVisual,
+                hotkeyBarBg, hotkeyBarTitle,
+                invBtn, invText, statsBtn, statsText,
                 magicMenuBtn, magicMenuText, saveBtn, saveText, joyBase, joyThumb
             );
+
+            updateMagicHotkeyBarUI();
         }
 
-        // 先將 map_assets.js 內嵌的所有圖片 (角色、怪物、道具、特效、地圖材質) 解碼為 HTMLImageElement，再啟動 Phaser
+        // 先將 map_assets.js 內嵌的所有圖片 (角色、怪物、道具、特效、地圖材質) 解碼為 HTMLImageElement，同步更新視覺化載入進度條，再啟動 Phaser
         (function bootLineageGame() {
             const allAssets = window.LineageAllAssets || {};
             const keys = Object.keys(allAssets);
-            if (keys.length === 0) {
+            const totalCount = keys.length;
+            if (totalCount === 0) {
+                updatePreloaderUI(45, '正在啟動遊戲引擎...');
                 window.game = new Phaser.Game(config);
                 return;
             }
-            let remaining = keys.length;
+            updatePreloaderUI(5, `正在解碼亞丁大陸美術資源 (0 / ${totalCount})...`);
+            let loadedCount = 0;
+            let remaining = totalCount;
             let launched = false;
             const doneOne = () => {
+                loadedCount++;
                 remaining--;
+                const pct = 5 + Math.round((loadedCount / totalCount) * 38);
+                updatePreloaderUI(pct, `正在解碼亞丁大陸美術資源 (${loadedCount} / ${totalCount})...`);
                 if (remaining <= 0 && !launched) {
                     launched = true;
-                    window.game = new Phaser.Game(config);
+                    updatePreloaderUI(44, '正在初始化 Phaser 3 遊戲引擎...');
+                    setTimeout(() => {
+                        window.game = new Phaser.Game(config);
+                    }, 30);
                 }
             };
             keys.forEach(k => {
@@ -4446,9 +5386,10 @@
             setTimeout(() => {
                 if (!launched) {
                     launched = true;
+                    updatePreloaderUI(44, '正在初始化 Phaser 3 遊戲引擎...');
                     window.game = new Phaser.Game(config);
                 }
-            }, 3000);
+            }, 4000);
         })();
     </script>
 </body>
