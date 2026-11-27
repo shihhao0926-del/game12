@@ -5,7 +5,7 @@ window.ItemDict = {
     'redwater': { name: '紅色藥水', image: 'redwater.png', rawAsset: 'item_redwater_raw.jpg', scale: 0.08, type: 'potion', stackable: true, price: 50, desc: '恢復少量體力 (約 30 HP)' },
     'orangewater': { name: '橘色藥水', image: 'orangewater.png', rawAsset: 'item_orangewater_raw.jpg', scale: 0.08, type: 'potion', stackable: true, price: 150, desc: '恢復中量體力 (約 80 HP)' },
     'whitewater': { name: '白色藥水', image: 'whitewater.png', rawAsset: 'item_whitewater_raw.jpg', scale: 0.08, type: 'potion', stackable: true, price: 500, desc: '恢復大量體力 (約 150 HP)' },
-    'bluewater': { name: '藍色藥水 (法師)', image: 'bluewater.png', scale: 0.08, type: 'potion_buff', allowedClasses: ['mage'], stackable: true, price: 1000, desc: '法師專用，MP回復量+30且恢復間隔縮短一半 (持續60秒)' },
+    'bluewater': { name: '藍色藥水 (法師)', image: 'bluewater.png', scale: 0.08, type: 'potion_buff', allowedClasses: ['mage'], stackable: true, price: 1000, desc: '法師專用，MP回復量+30且恢復間隔縮短一半 (持續5分鐘)' },
     'grasswater': { name: '加速藥水 (一階)', image: 'grasswater.png', rawAsset: 'item_grasswater_raw.jpg', scale: 0.08, type: 'potion_buff', stackable: true, price: 300, desc: '提升移動與攻擊速度 (持續10分鐘)' },
     'bravepotion': { name: '勇敢藥水 (騎士)', image: 'bravewater.png', scale: 0.08, type: 'potion_buff', allowedClasses: ['knight'], stackable: true, price: 1000, desc: '騎士專用，二段加速提升移動與攻擊速度 (持續5分鐘)' },
     'elvenwafer': { name: '精靈餅乾 (妖精)', image: 'elfcookies.png', scale: 0.08, type: 'potion_buff', allowedClasses: ['elf'], stackable: true, price: 1500, desc: '妖精專用，二段加速提升移動與攻擊速度 (持續5分鐘)' },

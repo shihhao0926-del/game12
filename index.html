@@ -81,9 +81,31 @@
             font-size: 11px;
             color: #778899;
         }
+        html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            width: 100dvw !important;
+            height: 100dvh !important;
+            background-color: #000 !important;
+            overflow: hidden !important;
+            touch-action: none !important;
+        }
+        canvas {
+            position: fixed !important;
+            inset: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            width: 100dvw !important;
+            height: 100dvh !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            display: block !important;
+        }
     </style>
 </head>
-<body style="background-color: #222; margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; touch-action: none; overflow: hidden;">
+<body style="background-color: #000; margin: 0; width: 100vw; height: 100vh; touch-action: none; overflow: hidden;">
 
     <!-- 視覺化載入進度條 (Preloader) -->
     <div id="lineage-preloader">
@@ -125,10 +147,30 @@
     <script>
         const config = { 
             type: Phaser.AUTO, 
-            scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH, width: 800, height: 600 },
+            scale: { mode: Phaser.Scale.NONE, width: 800, height: 600 },
             physics: { default: 'arcade' }, 
             scene: { preload: preload, create: create, update: update } 
         };
+
+        // 同步全畫面 Canvas 邊界與輸入座標縮放比例，讓 800x600 邏輯畫面 100% 鋪滿整個螢幕視窗無黑邊
+        function syncFullscreenCanvasScale(scene) {
+            try {
+                if (!scene || !scene.scale || !scene.sys || !scene.sys.canvas) return;
+                const canvas = scene.sys.canvas;
+                const rect = canvas.getBoundingClientRect();
+                if (rect.width > 0 && rect.height > 0) {
+                    scene.scale.canvasBounds.x = rect.left;
+                    scene.scale.canvasBounds.y = rect.top;
+                    scene.scale.canvasBounds.width = rect.width;
+                    scene.scale.canvasBounds.height = rect.height;
+                    scene.scale.displaySize.setSize(rect.width, rect.height);
+                    scene.scale.displayScale.set(
+                        scene.scale.baseSize.width / rect.width,
+                        scene.scale.baseSize.height / rect.height
+                    );
+                }
+            } catch (e) {}
+        }
 
         // 天堂1 十階魔法系統設定 (1~8級完整開放，9~10級預留設定，含魔法師傳授價格)
         // 職業學習限制：騎士可學 1~2 級 (Lv.8 / Lv.16)；妖精可學 1~4 級 (Lv.6 / 12 / 18 / 24)；法師可學全部 (Lv.4 起每 4 級一階)
@@ -450,6 +492,7 @@
 
         // 8格道具熱鍵系統狀態 (位於魔法熱鍵欄正上方)
         const ITEM_HOTKEY_COUNT = 8;
+        let currentItemHotkeyIndex = 0;
         let itemHotkeyDynamicUI = [];
         let itemDragGhost = null;
         let draggingItemHotkeyId = null;
@@ -2230,6 +2273,7 @@
                 equipment: JSON.parse(JSON.stringify(player.equipment)),
                 spells: JSON.parse(JSON.stringify(player.spells)),
                 itemHotkeys: JSON.parse(JSON.stringify(player.itemHotkeys || new Array(ITEM_HOTKEY_COUNT).fill(null))),
+                currentItemHotkeyIndex: currentItemHotkeyIndex,
                 magicHotkeys: JSON.parse(JSON.stringify(player.magicHotkeys || new Array(MAGIC_HOTKEY_COUNT).fill(null))),
                 currentHotkeyIndex: currentHotkeyIndex,
                 dungeon: player.dungeon || null,
@@ -3581,10 +3625,13 @@
 
         function create() {
             mainScene = this; 
+            syncFullscreenCanvasScale(this);
+            window.addEventListener('resize', () => syncFullscreenCanvasScale(this));
+            window.addEventListener('orientationchange', () => setTimeout(() => syncFullscreenCanvasScale(this), 100));
 
             // 先行建立基礎 UI 圖層與文字物件，避免非同步載入期間 Phaser 第一幀呼叫 update() 時因 uiGraphics 尚未初始化而中斷渲染迴圈
             uiGraphics = this.add.graphics().setDepth(9999); 
-            topTextUI = this.add.text(20, 20, '', { fontSize: '18px', fill: '#ffffff', fontStyle: 'bold', stroke: '#000', strokeThickness: 4 }).setScrollFactor(0).setDepth(9999);
+            topTextUI = this.add.text(20, 20, '', { fontSize: '15px', fill: '#ffffff', fontStyle: 'bold', stroke: '#000', strokeThickness: 4 }).setScrollFactor(0).setDepth(9999);
             regionTextUI = this.add.text(20, 46, '', { fontSize: '14px', fill: '#e8d8a8', fontStyle: 'bold', stroke: '#000', strokeThickness: 3 }).setScrollFactor(0).setDepth(9999);
             itemTooltip = this.add.text(0, 0, '', { fontSize: '14px', fill: '#ffffaa', fontStyle: 'bold', backgroundColor: 'rgba(0,0,0,0.85)', padding: {x: 8, y: 5}, border: '1px solid #777' }).setScrollFactor(0).setDepth(30000).setVisible(false);
 
@@ -3743,6 +3790,7 @@
                             } else {
                                 player.itemHotkeys[targetSlot] = draggingItemHotkeyId;
                             }
+                            currentItemHotkeyIndex = targetSlot;
                             const itName = ItemDict[draggingItemHotkeyId] ? ItemDict[draggingItemHotkeyId].name : '';
                             showFloatingText(`道具熱鍵 ${targetSlot + 1} 設定【${itName}】`, player, '#ffcc44');
                             updateItemHotkeyBarUI();
@@ -3772,6 +3820,7 @@
                         player.itemHotkeys = new Array(ITEM_HOTKEY_COUNT).fill(null);
                     }
                     player.itemHotkeys[targetItemHkSlot] = invSlot.id;
+                    currentItemHotkeyIndex = targetItemHkSlot;
                     const itName = ItemDict[invSlot.id] ? ItemDict[invSlot.id].name : invSlot.id;
                     showFloatingText(`道具熱鍵 ${targetItemHkSlot + 1} 設定【${itName}】`, player, '#ffcc44');
                     updateItemHotkeyBarUI();
@@ -3798,9 +3847,9 @@
             this.input.keyboard.on('keydown-I', toggleInventory); 
             this.input.keyboard.on('keydown-C', toggleStats); 
             this.input.keyboard.on('keydown-M', toggleMagic); 
-            this.input.keyboard.on('keydown-Q', function () { quickUseItem(potionTypes[currentPotionIndex]); });
+            this.input.keyboard.on('keydown-Q', function () { useItemHotkeySlot(currentItemHotkeyIndex); });
             this.input.keyboard.on('keydown-E', function () { performMagicAttack(); });
-            // 鍵盤數字鍵 1~8 切換對應的魔法熱鍵；F1~F8 直接使用對應的道具熱鍵
+            // 鍵盤數字鍵 1~8 切換選取對應的魔法熱鍵；F1~F8 切換選取對應的道具熱鍵
             ['ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT'].forEach((kName, idx) => {
                 this.input.keyboard.on('keydown-' + kName, function () {
                     if (!isPlaying || !player || player.isDead) return;
@@ -3811,7 +3860,7 @@
                 this.input.keyboard.on('keydown-' + kName, function (event) {
                     if (event && event.preventDefault) event.preventDefault();
                     if (!isPlaying || !player || player.isDead) return;
-                    useItemHotkeySlot(idx);
+                    selectItemHotkeySlot(idx, true);
                 });
             });
 
@@ -4408,6 +4457,8 @@
                         player.magicHotkeys[i] = player.spells[i];
                     }
                 }
+                currentItemHotkeyIndex = (typeof saveData.currentItemHotkeyIndex === 'number' && saveData.currentItemHotkeyIndex >= 0 && saveData.currentItemHotkeyIndex < ITEM_HOTKEY_COUNT)
+                    ? saveData.currentItemHotkeyIndex : 0;
                 currentHotkeyIndex = (typeof saveData.currentHotkeyIndex === 'number' && saveData.currentHotkeyIndex >= 0 && saveData.currentHotkeyIndex < MAGIC_HOTKEY_COUNT)
                     ? saveData.currentHotkeyIndex : 0;
                 player.level = saveData.level; player.exp = saveData.exp; player.maxExp = saveData.maxExp; player.statPoints = saveData.statPoints;
@@ -4430,6 +4481,7 @@
                 // 初始尚未學習魔法，可於出生點廣場找【🧙 大魔法師 ‧ 吉倫】付費學習魔法，再將魔法拖曳至下方8格魔法熱鍵
                 player.spells = [];
                 player.itemHotkeys = ['redwater', 'bluewater', 'grasswater', 'teleportscroll', null, null, null, null];
+                currentItemHotkeyIndex = 0;
                 player.magicHotkeys = new Array(MAGIC_HOTKEY_COUNT).fill(null);
                 currentHotkeyIndex = 0;
 
@@ -4451,11 +4503,12 @@
                 player.wis = clsTpl.initialStats.wis;
                 player.cha = clsTpl.initialStats.cha;
 
-                player.equipment.weapon = { id: clsTpl.defaultWeapon, enchant: 0 };
-                player.equipment.helmet = { id: 'hat', enchant: 0 };
-                player.equipment.armor = { id: 'clothing', enchant: 0 };
-                player.equipment.gloves = { id: 'gloves', enchant: 0 };
-                player.equipment.shoes = { id: 'shoe', enchant: 0 };
+                // 【測試用】角色開始時給予一把 +6 武器與一套 +4 防具
+                player.equipment.weapon = { id: clsTpl.defaultWeapon, enchant: 6 };
+                player.equipment.helmet = { id: 'hat', enchant: 4 };
+                player.equipment.armor = { id: 'clothing', enchant: 4 };
+                player.equipment.gloves = { id: 'gloves', enchant: 4 };
+                player.equipment.shoes = { id: 'shoe', enchant: 4 };
                 
                 player.maxHp = 40 + (player.con * 3);
                 player.maxMp = (selectedClass === 'mage' ? 60 : (selectedClass === 'elf' ? 35 : 18)) + (player.wis * 3);
@@ -5421,16 +5474,17 @@
                     if (player.playerClass !== 'mage') {
                         showFloatingText('只有法師可使用藍色藥水', player, '#ff6666');
                     } else if (!player.hasBluePotion) {
+                        const blueDuration = 300000; // 5 分鐘
                         const baseMpRegen = Math.max(1, Math.floor(player.wis / 3));
                         const tickMpRegen = baseMpRegen + 30;
                         let mpGain = Math.min(player.maxMp - player.mp, tickMpRegen);
                         player.mp = Math.min(player.maxMp, player.mp + tickMpRegen);
                         player.hasBluePotion = true;
-                        registerActiveBuff('item_bluewater', 'bluewater', 60000, `MP回復量 ${baseMpRegen}+30 / 恢復時間減半(1.5秒)`);
-                        showFloatingText(`藍色藥水：MP回復+30、恢復時間減半 (+${mpGain} MP)`, player, '#44aaff');
+                        registerActiveBuff('item_bluewater', 'bluewater', blueDuration, `MP回復量 ${baseMpRegen}+30 / 恢復時間減半(1.5秒，持續5分鐘)`);
+                        showFloatingText(`藍色藥水(5分鐘)：MP回復+30、恢復時間減半 (+${mpGain} MP)`, player, '#44aaff');
                         player.setTint(0x66ccff);
                         setTimeout(() => { if (player && !player.isDead) player.clearTint(); }, 400);
-                        mainScene.time.delayedCall(60000, () => {
+                        mainScene.time.delayedCall(blueDuration, () => {
                             if (!player || player.isDead) return;
                             player.hasBluePotion = false;
                             removeActiveBuff('item_bluewater');
@@ -5717,6 +5771,7 @@
         }
 
         function update(time, delta) {
+            syncFullscreenCanvasScale(this);
             if (uiGraphics) uiGraphics.clear();
             if (!isPlaying || !player) return; 
             if (!player.isDead) {
@@ -6762,12 +6817,27 @@
             return -1;
         }
 
+        function selectItemHotkeySlot(slotIdx, showToast = true) {
+            if (!player || slotIdx < 0 || slotIdx >= ITEM_HOTKEY_COUNT) return;
+            currentItemHotkeyIndex = slotIdx;
+            const itemId = player.itemHotkeys ? player.itemHotkeys[currentItemHotkeyIndex] : null;
+            if (showToast) {
+                if (itemId && ItemDict[itemId]) {
+                    showFloatingText(`選取道具熱鍵 F${slotIdx + 1}：【${ItemDict[itemId].name}】`, player, '#ffcc44');
+                } else {
+                    showFloatingText(`選取道具熱鍵 F${slotIdx + 1} (空)`, player, '#aaaaaa');
+                }
+            }
+            updateItemHotkeyBarUI();
+        }
+
         function useItemHotkeySlot(slotIdx) {
             if (!isPlaying || !player || player.isDead) return;
-            if (!Array.isArray(player.itemHotkeys) || slotIdx < 0 || slotIdx >= ITEM_HOTKEY_COUNT) return;
-            const itemId = player.itemHotkeys[slotIdx];
+            const useIdx = (typeof slotIdx === 'number') ? slotIdx : currentItemHotkeyIndex;
+            if (!Array.isArray(player.itemHotkeys) || useIdx < 0 || useIdx >= ITEM_HOTKEY_COUNT) return;
+            const itemId = player.itemHotkeys[useIdx];
             if (!itemId || !ItemDict[itemId]) {
-                showFloatingText(`道具熱鍵 F${slotIdx + 1} (空) — 請從背包拖曳道具至此`, player, '#aaaaaa');
+                showFloatingText(`道具熱鍵 F${useIdx + 1} (空) — 請從背包拖曳道具至此`, player, '#aaaaaa');
                 return;
             }
             const invIdx = player.inventory.findIndex(slot => slot && slot.id === itemId);
@@ -6789,6 +6859,7 @@
 
             for (let i = 0; i < ITEM_HOTKEY_COUNT; i++) {
                 const pos = getItemHotkeySlotPos(i);
+                const isSelected = (currentItemHotkeyIndex === i);
                 const itemId = player.itemHotkeys[i];
                 const itemData = (itemId && ItemDict[itemId]) ? ItemDict[itemId] : null;
 
@@ -6805,8 +6876,8 @@
                 }
 
                 const slotBg = mainScene.add.graphics().setScrollFactor(0).setDepth(20001);
-                slotBg.fillStyle(itemData ? 0x1d1912 : 0x14161d, 0.92);
-                slotBg.lineStyle(1.6, itemData ? (totalCount > 0 ? 0xd8a848 : 0x774444) : 0x555b66, 0.96);
+                slotBg.fillStyle(isSelected ? 0x3d2e16 : (itemData ? 0x1d1912 : 0x14161d), 0.92);
+                slotBg.lineStyle(isSelected ? 2.5 : 1.5, isSelected ? 0xffee44 : (itemData ? (totalCount > 0 ? 0xd8a848 : 0x774444) : 0x555b66), 0.96);
                 slotBg.fillRoundedRect(pos.x - 17, pos.y - 17, 34, 34, 4);
                 slotBg.strokeRoundedRect(pos.x - 17, pos.y - 17, 34, 34, 4);
                 itemHotkeyDynamicUI.push(slotBg);
@@ -6815,7 +6886,7 @@
                     .setScrollFactor(0).setDepth(20002).setInteractive({ useHandCursor: true });
                 hitZone.on('pointerdown', (pointer, lx, ly, event) => {
                     if (event) event.stopPropagation();
-                    useItemHotkeySlot(i);
+                    selectItemHotkeySlot(i, true);
                 });
                 itemHotkeyDynamicUI.push(hitZone);
 
@@ -6830,11 +6901,11 @@
                     itIcon.hotkeySlotIdx = i;
                     itIcon.on('pointerdown', (pointer, lx, ly, event) => {
                         if (event) event.stopPropagation();
-                        useItemHotkeySlot(i);
+                        selectItemHotkeySlot(i, true);
                     });
                     itIcon.on('pointerover', (pointer) => {
                         let p = getTooltipPos(pointer);
-                        itemTooltip.setText(getItemTooltipText(itemId) + `\n[道具熱鍵 F${i + 1}：點擊立即使用 ｜ 庫存: ${totalCount}]`);
+                        itemTooltip.setText(getItemTooltipText(itemId) + `\n[道具熱鍵 F${i + 1}：點選後按右下角【道具】鍵使用 ｜ 庫存: ${totalCount}]`);
                         itemTooltip.setPosition(p.x, p.y);
                         itemTooltip.setVisible(true);
                     });
@@ -6868,12 +6939,22 @@
 
                 const numTxt = mainScene.add.text(pos.x - 15, pos.y - 16, `F${i + 1}`, {
                     fontSize: '9.5px',
-                    fill: itemData ? '#ffd866' : '#999999',
+                    fill: isSelected ? '#ffee55' : (itemData ? '#ffd866' : '#999999'),
                     fontStyle: 'bold',
                     stroke: '#000000',
                     strokeThickness: 2
                 }).setScrollFactor(0).setDepth(20004);
                 itemHotkeyDynamicUI.push(numTxt);
+            }
+
+            // 同步更新右下角道具使用鍵文字提示
+            const activeItemId = player.itemHotkeys[currentItemHotkeyIndex];
+            if (itemUseBtnSubLabel) {
+                if (activeItemId && ItemDict[activeItemId]) {
+                    itemUseBtnSubLabel.setText(ItemDict[activeItemId].name.replace(/\s*\(.*\)/, '').substring(0, 4));
+                } else {
+                    itemUseBtnSubLabel.setText(`熱鍵F${currentItemHotkeyIndex + 1}`);
+                }
             }
         }
 
@@ -7081,24 +7162,21 @@
         }
 
         let magicAtkSpellLabel = null;
+        let itemUseBtnSubLabel = null;
 
         function createMobileUI() {
             let atkBtn = mainScene.add.circle(730, 530, 45, 0xff8800, 0.8).setScrollFactor(0).setDepth(20000).setInteractive();
             let atkText = mainScene.add.text(730, 530, '攻擊', { fontSize: '24px', fill: '#FFF', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(20000);
             
-            let potionBtn = mainScene.add.circle(640, 540, 35, potionColors[currentPotionIndex], 0.7).setScrollFactor(0).setDepth(20000).setInteractive();
-            let potionText = mainScene.add.text(640, 540, potionNames[currentPotionIndex], { fontSize: '18px', fill: potionTextColors[currentPotionIndex], fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(20000);
+            // 右下角道具使用鍵：點選道具熱鍵欄的物品後，按此按鈕即可使用該物品 (已取消上方切換按鈕)
+            let potionBtn = mainScene.add.circle(640, 540, 35, 0xcc2222, 0.78).setScrollFactor(0).setDepth(20000).setInteractive();
+            let potionText = mainScene.add.text(640, 532, '道具', { fontSize: '17px', fill: '#FFFFFF', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(20000);
+            itemUseBtnSubLabel = mainScene.add.text(640, 553, '熱鍵F1', { fontSize: '10px', fill: '#ffee77', fontStyle: 'bold', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5).setScrollFactor(0).setDepth(20000);
             
-            let swapBtn = mainScene.add.circle(640, 480, 20, 0x555555, 0.8).setScrollFactor(0).setDepth(20000).setInteractive();
-            let swapText = mainScene.add.text(640, 480, '切換', { fontSize: '12px', fill: '#FFF', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(20000);
-            
-            let magicAtkBtn = mainScene.add.circle(550, 540, 35, 0x0066ff, 0.7).setScrollFactor(0).setDepth(20000).setInteractive();
+            // 右下角魔法使用鍵：點選魔法熱鍵欄的魔法後，按此按鈕即可施放該魔法 (已取消上方切換按鈕)
+            let magicAtkBtn = mainScene.add.circle(550, 540, 35, 0x0066ff, 0.78).setScrollFactor(0).setDepth(20000).setInteractive();
             let magicAtkTextLabel = mainScene.add.text(550, 532, '施法', { fontSize: '17px', fill: '#FFF', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(20000);
             magicAtkSpellLabel = mainScene.add.text(550, 553, '熱鍵1', { fontSize: '10px', fill: '#ffee77', fontStyle: 'bold', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5).setScrollFactor(0).setDepth(20000);
-            
-            // 施法鍵上方的「切換」鈕：直接在下方 8 格魔法熱鍵之間切換要使用的魔法
-            let swapMagicBtn = mainScene.add.circle(550, 480, 20, 0x5555aa, 0.85).setScrollFactor(0).setDepth(20000).setInteractive();
-            magicTextVisual = mainScene.add.text(550, 480, '切換', { fontSize: '12px', fill: '#FFF', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(20000);
             magicBtnVisual = magicAtkBtn;
 
             // 魔法熱鍵欄正上方：8 格道具熱鍵底座與標題
@@ -7107,7 +7185,7 @@
             itemHotkeyBarBg.lineStyle(2, 0xd89e40, 0.92);
             itemHotkeyBarBg.fillRoundedRect(181, 481, 314, 40, 6);
             itemHotkeyBarBg.strokeRoundedRect(181, 481, 314, 40, 6);
-            let itemHotkeyBarTitle = mainScene.add.text(338, 472, '道 具 熱 鍵 (從背包拖曳道具至此點擊或按F1~F8使用)', {
+            let itemHotkeyBarTitle = mainScene.add.text(338, 472, '道 具 熱 鍵 (點選物品後按右下角【道具】鍵使用)', {
                 fontSize: '10.5px', fill: '#ffcc66', fontStyle: 'bold', stroke: '#000000', strokeThickness: 3
             }).setOrigin(0.5).setScrollFactor(0).setDepth(20000);
 
@@ -7117,7 +7195,7 @@
             hotkeyBarBg.lineStyle(2, 0xc8a448, 0.9);
             hotkeyBarBg.fillRoundedRect(181, 536, 314, 40, 6);
             hotkeyBarBg.strokeRoundedRect(181, 536, 314, 40, 6);
-            let hotkeyBarTitle = mainScene.add.text(338, 528, '魔 法 熱 鍵 (可從魔法書拖曳至此)', {
+            let hotkeyBarTitle = mainScene.add.text(338, 528, '魔 法 熱 鍵 (點選魔法後按右下角【施法】鍵施放)', {
                 fontSize: '10.5px', fill: '#ffe088', fontStyle: 'bold', stroke: '#000000', strokeThickness: 3
             }).setOrigin(0.5).setScrollFactor(0).setDepth(20000);
 
@@ -7175,29 +7253,18 @@
             });
             atkBtn.on('pointerup', () => atkBtn.setAlpha(0.8)); atkBtn.on('pointerout', () => atkBtn.setAlpha(0.8));
 
-            potionBtn.on('pointerdown', function(pointer, localX, localY, event) { event.stopPropagation(); potionBtn.setAlpha(1); quickUseItem(potionTypes[currentPotionIndex]); });
-            potionBtn.on('pointerup', () => potionBtn.setAlpha(0.7)); potionBtn.on('pointerout', () => potionBtn.setAlpha(0.7));
-
-            swapBtn.on('pointerdown', function(pointer, localX, localY, event) { 
-                event.stopPropagation(); swapBtn.setAlpha(1); 
-                currentPotionIndex = (currentPotionIndex + 1) % potionTypes.length;
-                potionBtn.setFillStyle(potionColors[currentPotionIndex], 0.7);
-                potionText.setText(potionNames[currentPotionIndex]);
-                potionText.setColor(potionTextColors[currentPotionIndex]);
+            potionBtn.on('pointerdown', function(pointer, localX, localY, event) {
+                event.stopPropagation();
+                potionBtn.setAlpha(1);
+                useItemHotkeySlot(currentItemHotkeyIndex);
             });
-            swapBtn.on('pointerup', () => swapBtn.setAlpha(0.8)); swapBtn.on('pointerout', () => swapBtn.setAlpha(0.8));
+            potionBtn.on('pointerup', () => potionBtn.setAlpha(0.78)); potionBtn.on('pointerout', () => potionBtn.setAlpha(0.78));
 
             magicAtkBtn.on('pointerdown', function(pointer, localX, localY, event) { 
                 event.stopPropagation(); magicAtkBtn.setAlpha(1); 
                 performMagicAttack();
             });
-            magicAtkBtn.on('pointerup', () => magicAtkBtn.setAlpha(0.7)); magicAtkBtn.on('pointerout', () => magicAtkBtn.setAlpha(0.7));
-
-            swapMagicBtn.on('pointerdown', function(pointer, localX, localY, event) { 
-                event.stopPropagation(); swapMagicBtn.setAlpha(1); 
-                cycleNextMagicHotkey();
-            });
-            swapMagicBtn.on('pointerup', () => swapMagicBtn.setAlpha(0.85)); swapMagicBtn.on('pointerout', () => swapMagicBtn.setAlpha(0.85));
+            magicAtkBtn.on('pointerup', () => magicAtkBtn.setAlpha(0.78)); magicAtkBtn.on('pointerout', () => magicAtkBtn.setAlpha(0.78));
 
             // 上方選單列 (已移除「商店」熱鍵，僅保留 紀錄、魔法、屬性、背包；購買物品需回出生地的武器藥水商店)
             let invBtn = mainScene.add.rectangle(730, 40, 60, 40, 0x444444, 0.8).setScrollFactor(0).setDepth(20000).setInteractive();
@@ -7249,8 +7316,8 @@
             });
 
             mobileUIElements.push(
-                atkBtn, atkText, potionBtn, potionText, swapBtn, swapText,
-                magicAtkBtn, magicAtkTextLabel, magicAtkSpellLabel, swapMagicBtn, magicTextVisual,
+                atkBtn, atkText, potionBtn, potionText, itemUseBtnSubLabel,
+                magicAtkBtn, magicAtkTextLabel, magicAtkSpellLabel,
                 itemHotkeyBarBg, itemHotkeyBarTitle,
                 hotkeyBarBg, hotkeyBarTitle,
                 expBarGraphics, expBarLabelText, expBarHitZone,
